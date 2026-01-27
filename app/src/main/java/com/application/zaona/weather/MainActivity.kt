@@ -8,10 +8,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,9 +29,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBar
@@ -127,6 +135,28 @@ class MainActivity : ComponentActivity() {
                                             selectedIndex = selectedSyncDaysIndex,
                                             onSelectedIndexChange = { selectedSyncDaysIndex = it }
                                         )
+                                    }
+
+                                    Button(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .padding(top = 16.dp),
+                                        onClick = { /* Copy Data Logic */ },
+                                        colors = ButtonDefaults.buttonColors()
+                                    ) {
+                                        Text("复制数据", color = if (isSystemInDarkTheme()) Color.White else Color.Black)
+                                    }
+
+                                    Button(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .padding(top = 16.dp),
+                                        onClick = { /* Sync Data Logic */ },
+                                        colors = ButtonDefaults.buttonColorsPrimary()
+                                    ) {
+                                        Text("同步数据", color = Color.White)
                                     }
                                 }
                             }
