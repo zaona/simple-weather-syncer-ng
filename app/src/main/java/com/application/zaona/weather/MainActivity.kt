@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -32,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
+import com.xiaomi.xms.wearable.Wearable
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -90,7 +92,26 @@ class MainActivity : ComponentActivity() {
                         when (selectedIndex) {
                             0 -> {
                                 var isConnected by remember { mutableStateOf(false) }
-                                val deviceName = "Mi Watch"
+                                var deviceName by remember { mutableStateOf("") }
+                                val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
+
+                                fun checkConnection() {
+                                    nodeApi.connectedNodes.addOnSuccessListener { nodes ->
+                                        if (nodes.isNotEmpty()) {
+                                            isConnected = true
+                                            deviceName = nodes[0].name
+                                        } else {
+                                            isConnected = false
+                                            deviceName = ""
+                                        }
+                                    }.addOnFailureListener {
+                                        isConnected = false
+                                    }
+                                }
+
+                                LaunchedEffect(Unit) {
+                                    checkConnection()
+                                }
                                 
                                 val syncDaysOptions = listOf("3天", "7天", "10天", "15天", "30天")
                                 var selectedSyncDaysIndex by remember { mutableIntStateOf(0) }
@@ -115,7 +136,7 @@ class MainActivity : ComponentActivity() {
                                         BasicComponent(
                                             title = if (isConnected) "已连接设备" else "未连接设备",
                                             summary = if (isConnected) deviceName else "点击重试",
-                                            onClick = { isConnected = !isConnected }
+                                            onClick = { checkConnection() }
                                         )
                                     }
                                     

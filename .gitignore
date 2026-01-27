@@ -16,5 +16,6 @@ local.properties
 
 example
 old
+xms-wearable-sdk
 key.properties
 app/simple-weather-release-key.jks
