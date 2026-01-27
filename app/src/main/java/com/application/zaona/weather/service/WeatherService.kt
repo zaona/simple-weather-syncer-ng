@@ -78,6 +78,35 @@ object WeatherService {
         }
     }
 
+    suspend fun fetchDailyWeather(locationId: String, days: String, cityName: String): String {
+        val url = "https://$DEFAULT_API_HOST/v7/weather/$days?location=$locationId&key=$DEFAULT_API_KEY"
+        
+        return withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(url)
+                .header("X-Android-Package-Name", ANDROID_PACKAGE_NAME)
+                .header("X-Android-Cert", ANDROID_CERT_SHA1)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("Unexpected code $response")
+                }
+
+                val responseBody = response.body?.string() ?: throw IOException("Empty response body")
+                val jsonObject = gson.fromJson(responseBody, com.google.gson.JsonObject::class.java)
+                
+                val code = jsonObject.get("code")?.asString
+                if (code != "200") {
+                    throw IOException("API Error: $code")
+                }
+                
+                jsonObject.addProperty("location", cityName)
+                jsonObject.toString()
+            }
+        }
+    }
+
     fun loadRecentSearches(context: Context): List<CityLocation> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val json = prefs.getString(KEY_RECENT_SEARCHES, null) ?: return emptyList()

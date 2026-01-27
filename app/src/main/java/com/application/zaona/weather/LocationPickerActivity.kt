@@ -101,7 +101,10 @@ class LocationPickerActivity : ComponentActivity() {
                             showDialog.value = false
                             if (dialogSuccess && locatedCity != null) {
                                 WeatherService.addToRecentSearches(context, locatedCity!!)
-                                val intent = Intent().apply { putExtra("location", locatedCity.toString()) }
+                                val intent = Intent().apply { 
+                                    putExtra("location", locatedCity.toString())
+                                    putExtra("location_data", com.google.gson.Gson().toJson(locatedCity))
+                                }
                                 (context as? Activity)?.setResult(Activity.RESULT_OK, intent)
                                 (context as? Activity)?.finish()
                             }
@@ -239,7 +242,10 @@ class LocationPickerActivity : ComponentActivity() {
                                                         summary = "${result.adm1} - ${result.adm2}",
                                                         onClick = {
                                                             WeatherService.addToRecentSearches(context, result)
-                                                            val intent = Intent().apply { putExtra("location", result.toString()) }
+                                                            val intent = Intent().apply { 
+                                                                putExtra("location", result.toString())
+                                                                putExtra("location_data", com.google.gson.Gson().toJson(result))
+                                                            }
                                                             (context as? Activity)?.setResult(Activity.RESULT_OK, intent)
                                                             (context as? Activity)?.finish()
                                                         }
@@ -322,7 +328,10 @@ class LocationPickerActivity : ComponentActivity() {
                                                 summary = "${history.adm1} - ${history.adm2}",
                                                 onClick = {
                                                     WeatherService.addToRecentSearches(context, history) // Re-add to move to top
-                                                    val intent = Intent().apply { putExtra("location", history.toString()) }
+                                                    val intent = Intent().apply { 
+                                                        putExtra("location", history.toString())
+                                                        putExtra("location_data", com.google.gson.Gson().toJson(history))
+                                                    }
                                                     (context as? Activity)?.setResult(Activity.RESULT_OK, intent)
                                                     (context as? Activity)?.finish()
                                                 }

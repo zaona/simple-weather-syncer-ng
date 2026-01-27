@@ -3,6 +3,15 @@ package com.application.zaona.weather
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.runtime.rememberCoroutineScope
+import com.application.zaona.weather.model.CityLocation
+import com.application.zaona.weather.service.WeatherService
+import com.google.gson.Gson
+import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -47,6 +56,8 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.extra.SuperArrow
 import top.yukonga.miuix.kmp.extra.SuperBottomSheet
+import top.yukonga.miuix.kmp.extra.SuperDialog
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.extra.SuperDropdown
 import top.yukonga.miuix.kmp.extra.SuperSwitch
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -91,6 +102,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         when (selectedIndex) {
                             0 -> {
+                                val scope = rememberCoroutineScope()
                                 var isConnected by remember { mutableStateOf(false) }
                                 var deviceName by remember { mutableStateOf("") }
                                 val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
@@ -117,13 +129,47 @@ class MainActivity : ComponentActivity() {
                                 var selectedSyncDaysIndex by remember { mutableIntStateOf(0) }
                                 
                                 var currentLocation by remember { mutableStateOf("未设置") }
+                                var selectedCityLocation by remember { mutableStateOf<CityLocation?>(null) }
+                                
+                                // Load saved preferences
+                                LaunchedEffect(Unit) {
+                                    val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                    selectedSyncDaysIndex = prefs.getInt("sync_days_index", 0)
+                                    currentLocation = prefs.getString("selected_location_name", "未设置") ?: "未设置"
+                                    val locationJson = prefs.getString("selected_location_json", null)
+                                    if (locationJson != null) {
+                                        try {
+                                            selectedCityLocation = Gson().fromJson(locationJson, CityLocation::class.java)
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    }
+                                }
+
+                                val showDialog = remember { mutableStateOf(false) }
+                                var dialogTitle by remember { mutableStateOf("") }
+                                var dialogSummary by remember { mutableStateOf("") }
+
                                 val locationPickerLauncher = rememberLauncherForActivityResult(
                                     contract = ActivityResultContracts.StartActivityForResult()
                                 ) { result ->
                                     if (result.resultCode == Activity.RESULT_OK) {
+                                        val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                        val editor = prefs.edit()
+                                        
                                         result.data?.getStringExtra("location")?.let {
                                             currentLocation = it
+                                            editor.putString("selected_location_name", it)
                                         }
+                                        result.data?.getStringExtra("location_data")?.let { json ->
+                                            try {
+                                                selectedCityLocation = Gson().fromJson(json, CityLocation::class.java)
+                                                editor.putString("selected_location_json", json)
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                        }
+                                        editor.apply()
                                     }
                                 }
 
@@ -154,7 +200,11 @@ class MainActivity : ComponentActivity() {
                                             title = "同步天气天数",
                                             items = syncDaysOptions,
                                             selectedIndex = selectedSyncDaysIndex,
-                                            onSelectedIndexChange = { selectedSyncDaysIndex = it }
+                                            onSelectedIndexChange = { 
+                                                selectedSyncDaysIndex = it
+                                                val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                                prefs.edit().putInt("sync_days_index", it).apply()
+                                            }
                                         )
                                     }
 
@@ -163,7 +213,44 @@ class MainActivity : ComponentActivity() {
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp)
                                             .padding(top = 16.dp),
-                                        onClick = { /* Copy Data Logic */ },
+                                        onClick = {
+                                            if (selectedCityLocation == null) {
+                                                dialogTitle = "提示"
+                                                dialogSummary = "请先设置位置"
+                                                showDialog.value = true
+                                                return@Button
+                                            }
+                                            
+                                            scope.launch {
+                                                try {
+                                                    val days = when(selectedSyncDaysIndex) {
+                                                        0 -> "3d"
+                                                        1 -> "7d"
+                                                        2 -> "10d"
+                                                        3 -> "15d"
+                                                        4 -> "30d"
+                                                        else -> "3d"
+                                                    }
+                                                    val jsonString = WeatherService.fetchDailyWeather(
+                                                        selectedCityLocation!!.id,
+                                                        days,
+                                                        selectedCityLocation!!.name
+                                                    )
+                                                    
+                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                    val clip = ClipData.newPlainText("Weather Data", jsonString)
+                                                    clipboard.setPrimaryClip(clip)
+                                                    
+                                                    dialogTitle = "复制成功"
+                                                    dialogSummary = "天气数据已复制到剪贴板"
+                                                    showDialog.value = true
+                                                } catch (e: Exception) {
+                                                    dialogTitle = "获取失败"
+                                                    dialogSummary = e.message ?: "未知错误"
+                                                    showDialog.value = true
+                                                }
+                                            }
+                                        },
                                         colors = ButtonDefaults.buttonColors()
                                     ) {
                                         Text("复制数据", color = if (isSystemInDarkTheme()) Color.White else Color.Black)
@@ -178,6 +265,19 @@ class MainActivity : ComponentActivity() {
                                         colors = ButtonDefaults.buttonColorsPrimary()
                                     ) {
                                         Text("同步数据", color = Color.White)
+                                    }
+                                    
+                                    SuperDialog(
+                                        title = dialogTitle,
+                                        summary = dialogSummary,
+                                        show = showDialog,
+                                        onDismissRequest = { showDialog.value = false }
+                                    ) {
+                                        TextButton(
+                                            text = "确定",
+                                            onClick = { showDialog.value = false },
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
                                     }
                                 }
                             }
