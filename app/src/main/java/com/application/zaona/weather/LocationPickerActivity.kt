@@ -112,7 +112,7 @@ class LocationPickerActivity : ComponentActivity() {
                                 },
                                 expanded = isSearchExpanded,
                                 onExpandedChange = { isSearchExpanded = it },
-                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                                modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 16.dp, bottom = 8.dp),
                                 outsideEndAction = {
                                     Text(
                                         modifier = Modifier
