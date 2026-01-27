@@ -32,10 +32,13 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.extra.SuperArrow
+import top.yukonga.miuix.kmp.extra.SuperBottomSheet
 import top.yukonga.miuix.kmp.extra.SuperDropdown
+import top.yukonga.miuix.kmp.extra.SuperSwitch
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -127,7 +130,62 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            1 -> Greeting("Settings")
+                            1 -> {
+                                var advancedSyncMode by remember { mutableStateOf(false) }
+                                val showApiSettings = remember { mutableStateOf(false) }
+                                val currentVersion = "v1.0.0"
+
+                                Column(
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Card(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        SuperSwitch(
+                                            title = "高级同步模式",
+                                            summary = "启用后可同步更多天气数据",
+                                            checked = advancedSyncMode,
+                                            onCheckedChange = { advancedSyncMode = it }
+                                        )
+                                        SuperArrow(
+                                            title = "API 设置",
+                                            onClick = { showApiSettings.value = true }
+                                        )
+                                        SuperArrow(
+                                            title = "检查更新",
+                                            summary = currentVersion,
+                                            onClick = { /* Check update logic */ }
+                                        )
+                                    }
+
+                                    SmallTitle(text = "特别感谢")
+                                    Card(
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    ) {
+                                        BasicComponent(
+                                            title = "Waijade",
+                                            summary = "为快应用与同步器插件贡献代码",
+                                            onClick = { /* Optional: Link to profile */ }
+                                        )
+                                        BasicComponent(
+                                            title = "xinghengCN",
+                                            summary = "为作者提供米环9和9pro供测试",
+                                            onClick = { /* Optional: Link to profile */ }
+                                        )
+                                    }
+                                }
+
+                                SuperBottomSheet(
+                                    show = showApiSettings,
+                                    title = "API 设置",
+                                    onDismissRequest = { showApiSettings.value = false }
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text("这里是 API 设置面板内容")
+                                        // TODO: Add API settings content
+                                    }
+                                }
+                            }
                         }
                     }
                 }
