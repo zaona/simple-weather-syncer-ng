@@ -27,6 +27,11 @@
             android:exported="false"
             android:label="位置设置"
             android:theme="@style/Theme.Simpleweathersyncerng" />
+        <activity
+            android:name=".SponsorActivity"
+            android:exported="false"
+            android:label="赞助者鸣谢"
+            android:theme="@style/Theme.Simpleweathersyncerng" />
     </application>
 
 </manifest>
