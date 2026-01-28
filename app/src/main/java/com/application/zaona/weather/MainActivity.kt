@@ -564,7 +564,7 @@ class MainActivity : ComponentActivity() {
                                                     isTestingConnection = true
                                                     try {
                                                         // Test connection
-                                                        val host = customApiHost.ifEmpty { "devapi.qweather.com" }
+                                                        val host = customApiHost
                                                         val key = customApiKey
                                                         
                                                         val (success, message) = WeatherService.testApiConnection(host, key)
