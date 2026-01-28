@@ -515,7 +515,8 @@ class MainActivity : ComponentActivity() {
                                 SuperBottomSheet(
                                     show = showApiSettings,
                                     title = "API 设置",
-                                    onDismissRequest = { showApiSettings.value = false }
+                                    onDismissRequest = { showApiSettings.value = false },
+                                    defaultWindowInsetsPadding = false
                                 ) {
                                     // State for API settings
                                     var customApiHost by remember { mutableStateOf("") }
