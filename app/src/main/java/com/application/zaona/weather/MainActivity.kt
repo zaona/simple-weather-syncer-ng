@@ -28,7 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -63,7 +63,7 @@ import top.yukonga.miuix.kmp.extra.WindowDialog
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.TextField
-import androidx.compose.material3.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
@@ -597,10 +597,9 @@ class MainActivity : ComponentActivity() {
                                             colors = ButtonDefaults.buttonColorsPrimary()
                                         ) {
                                             if (isTestingConnection) {
-                                                CircularProgressIndicator(
+                                                InfiniteProgressIndicator(
                                                     modifier = Modifier.size(20.dp),
-                                                    color = Color.White,
-                                                    strokeWidth = 2.dp
+                                                    color = Color.White
                                                 )
                                             } else {
                                                 Text("保存并验证", color = Color.White)
