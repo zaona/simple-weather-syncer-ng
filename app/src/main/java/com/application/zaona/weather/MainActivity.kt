@@ -105,16 +105,20 @@ class MainActivity : ComponentActivity() {
                                 val scope = rememberCoroutineScope()
                                 var isConnected by remember { mutableStateOf(false) }
                                 var deviceName by remember { mutableStateOf("") }
+                                var nodeId by remember { mutableStateOf("") }
                                 val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
+                                val messageApi = remember { Wearable.getMessageApi(context.applicationContext) }
 
                                 fun checkConnection() {
                                     nodeApi.connectedNodes.addOnSuccessListener { nodes ->
                                         if (nodes.isNotEmpty()) {
                                             isConnected = true
                                             deviceName = nodes[0].name
+                                            nodeId = nodes[0].id
                                         } else {
                                             isConnected = false
                                             deviceName = ""
+                                            nodeId = ""
                                         }
                                     }.addOnFailureListener {
                                         isConnected = false
@@ -261,7 +265,62 @@ class MainActivity : ComponentActivity() {
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp)
                                             .padding(top = 16.dp),
-                                        onClick = { /* Sync Data Logic */ },
+                                        onClick = {
+                                            if (selectedCityLocation == null) {
+                                                dialogTitle = "提示"
+                                                dialogSummary = "请先设置位置"
+                                                showDialog.value = true
+                                                return@Button
+                                            }
+
+                                            if (!isConnected || nodeId.isEmpty()) {
+                                                dialogTitle = "提示"
+                                                dialogSummary = "请先连接设备"
+                                                showDialog.value = true
+                                                return@Button
+                                            }
+                                            
+                                            scope.launch {
+                                                try {
+                                                    dialogTitle = "正在同步"
+                                                    dialogSummary = "正在获取天气数据..."
+                                                    showDialog.value = true
+                                                    
+                                                    val days = when(selectedSyncDaysIndex) {
+                                                        0 -> "3d"
+                                                        1 -> "7d"
+                                                        2 -> "10d"
+                                                        3 -> "15d"
+                                                        4 -> "30d"
+                                                        else -> "3d"
+                                                    }
+                                                    val jsonString = WeatherService.fetchDailyWeather(
+                                                        selectedCityLocation!!.id,
+                                                        days,
+                                                        selectedCityLocation!!.name
+                                                    )
+
+                                                    dialogSummary = "正在发送数据到设备..."
+                                                    
+                                                    messageApi.sendMessage(nodeId, jsonString.toByteArray())
+                                                        .addOnSuccessListener {
+                                                            dialogTitle = "同步成功"
+                                                            dialogSummary = "天气数据已发送到设备"
+                                                            showDialog.value = true
+                                                        }
+                                                        .addOnFailureListener { e ->
+                                                            dialogTitle = "发送失败"
+                                                            dialogSummary = e.message ?: "未知错误"
+                                                            showDialog.value = true
+                                                        }
+                                                    
+                                                } catch (e: Exception) {
+                                                    dialogTitle = "获取失败"
+                                                    dialogSummary = e.message ?: "未知错误"
+                                                    showDialog.value = true
+                                                }
+                                            }
+                                        },
                                         colors = ButtonDefaults.buttonColorsPrimary()
                                     ) {
                                         Text("同步数据", color = Color.White)
