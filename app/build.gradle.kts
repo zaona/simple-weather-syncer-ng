@@ -17,8 +17,8 @@ android {
         applicationId = "com.application.zaona.weather"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 12
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -54,6 +54,30 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val name = output.filters.find { it.filterType == com.android.build.api.variant.FilterConfiguration.FilterType.ABI }?.identifier
+            val baseAbiVersionCode = mapOf(
+                "armeabi-v7a" to 1,
+                "arm64-v8a" to 2,
+                "x86_64" to 3
+            )[name]
+            if (baseAbiVersionCode != null) {
+                output.versionCode.set(baseAbiVersionCode * 1000 + (output.versionCode.get() ?: 0))
+            }
+        }
     }
 }
 

@@ -10,6 +10,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.runtime.rememberCoroutineScope
 import com.application.zaona.weather.model.CityLocation
+import com.application.zaona.weather.service.UpdateService
 import com.application.zaona.weather.service.WeatherService
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
@@ -58,6 +59,7 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.extra.SuperArrow
 import top.yukonga.miuix.kmp.extra.SuperBottomSheet
 import top.yukonga.miuix.kmp.extra.SuperDialog
+import top.yukonga.miuix.kmp.extra.WindowDialog
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.TextField
@@ -91,11 +93,35 @@ class MainActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 var advancedSyncMode by remember { mutableStateOf(false) }
                 var useCustomApi by remember { mutableStateOf(false) }
+
+                // Hoisted update state
+                val showUpdateDialog = remember { mutableStateOf(false) }
+                var updateDialogTitle by remember { mutableStateOf("") }
+                var updateDialogSummary by remember { mutableStateOf("") }
+                var updateDownloadUrl by remember { mutableStateOf<String?>(null) }
+                var isForceUpdate by remember { mutableStateOf(false) }
                 
                 LaunchedEffect(Unit) {
                     val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                     advancedSyncMode = prefs.getBoolean("advanced_sync_mode", false)
                     useCustomApi = prefs.getBoolean("use_custom_api", false)
+
+                    // Auto check for update
+                    launch {
+                        try {
+                            val result = UpdateService.checkForUpdateManually(context)
+                            if (result.hasUpdate && result.updateInfo != null) {
+                                val info = result.updateInfo
+                                updateDialogTitle = "发现新版本：${info.versionName}"
+                                updateDialogSummary = info.updateDescription
+                                updateDownloadUrl = info.downloadUrl
+                                isForceUpdate = info.forceUpdate
+                                showUpdateDialog.value = true
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
                 }
 
                 Scaffold(
@@ -198,6 +224,10 @@ class MainActivity : ComponentActivity() {
                                 Column(
                                     modifier = Modifier.fillMaxSize()
                                 ) {
+                                    LaunchedEffect(Unit) {
+                                        checkConnection()
+                                    }
+
                                     Card(
                                         modifier = Modifier.padding(16.dp)
                                     ) {
@@ -400,7 +430,13 @@ class MainActivity : ComponentActivity() {
                             }
                             1 -> {
                                 val showApiSettings = remember { mutableStateOf(false) }
-                                val currentVersion = "v1.0.0"
+                                val currentVersion = remember {
+                                    try {
+                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                                    } catch (e: Exception) {
+                                        "1.0"
+                                    }
+                                }
 
                                 Column(
                                     modifier = Modifier.fillMaxSize()
@@ -426,7 +462,29 @@ class MainActivity : ComponentActivity() {
                                         SuperArrow(
                                             title = "检查更新",
                                             summary = currentVersion,
-                                            onClick = { /* Check update logic */ }
+                                            onClick = { 
+                                                scope.launch {
+                                                    val result = UpdateService.checkForUpdateManually(context)
+                                                    if (result.checkFailed) {
+                                                        updateDialogTitle = "检查更新失败"
+                                                        updateDialogSummary = result.errorMessage ?: "网络连接失败，请稍后重试"
+                                                        updateDownloadUrl = null
+                                                        showUpdateDialog.value = true
+                                                    } else if (result.hasUpdate && result.updateInfo != null) {
+                                                        val info = result.updateInfo
+                                                        updateDialogTitle = "发现新版本：${info.versionName}"
+                                                        updateDialogSummary = info.updateDescription
+                                                        updateDownloadUrl = info.downloadUrl
+                                                        isForceUpdate = info.forceUpdate
+                                                        showUpdateDialog.value = true
+                                                    } else {
+                                                        updateDialogTitle = "已是最新版本"
+                                                        updateDialogSummary = "当前已是最新版本，无需更新"
+                                                        updateDownloadUrl = null
+                                                        showUpdateDialog.value = true
+                                                    }
+                                                }
+                                            }
                                         )
                                     }
 
@@ -608,6 +666,53 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                    }
+                }
+
+                WindowDialog(
+                    title = updateDialogTitle,
+                    summary = updateDialogSummary,
+                    show = showUpdateDialog,
+                    onDismissRequest = {
+                        if (!isForceUpdate) {
+                            showUpdateDialog.value = false
+                        }
+                    }
+                ) {
+                    if (updateDownloadUrl != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            if (!isForceUpdate) {
+                                Button(
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { showUpdateDialog.value = false },
+                                    colors = ButtonDefaults.buttonColors()
+                                ) {
+                                    Text("取消")
+                                }
+                            }
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateDownloadUrl!!))
+                                    context.startActivity(intent)
+                                    if (!isForceUpdate) {
+                                        showUpdateDialog.value = false
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColorsPrimary()
+                            ) {
+                                Text(if (isForceUpdate) "立即更新" else "前往下载", color = Color.White)
+                            }
+                        }
+                    } else {
+                        TextButton(
+                            text = "确定",
+                            onClick = { showUpdateDialog.value = false },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
