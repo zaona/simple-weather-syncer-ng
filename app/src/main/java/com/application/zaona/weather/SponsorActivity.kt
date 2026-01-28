@@ -24,13 +24,13 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.application.zaona.weather.model.Sponsor
-import com.application.zaona.weather.service.AfdianService
+import com.application.zaona.weather.service.SponsorService
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -59,6 +59,7 @@ class SponsorActivity : ComponentActivity() {
                 val context = LocalContext.current
                 
                 var sponsors by remember { mutableStateOf<List<Sponsor>>(emptyList()) }
+                var updatedAt by remember { mutableStateOf("") }
                 var isLoading by remember { mutableStateOf(true) }
                 var loadProgress by remember { mutableStateOf(0f) }
                 var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -71,9 +72,11 @@ class SponsorActivity : ComponentActivity() {
                     lifecycleScope.launch {
                         whenStarted {
                             try {
-                                sponsors = AfdianService.fetchSponsors { progress ->
+                                val result = SponsorService.fetchSponsors { progress ->
                                     loadProgress = progress
                                 }
+                                sponsors = result.sponsors
+                                updatedAt = result.updatedAt
                                 if (sponsors.isEmpty()) {
                                     errorMessage = "暂无赞助者数据"
                                 }
@@ -147,14 +150,7 @@ class SponsorActivity : ComponentActivity() {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
-                                            CircularProgressIndicator(
-                                                progress = loadProgress
-                                            )
-                                            Spacer(modifier = Modifier.height(16.dp))
-                                            Text(
-                                                text = "正在加载 ${(loadProgress * 100).toInt()}%",
-                                                color = Color.Gray
-                                            )
+                                            InfiniteProgressIndicator()
                                         }
                                     }
                                 } else if (errorMessage != null) {
@@ -180,6 +176,22 @@ class SponsorActivity : ComponentActivity() {
                                             onClick = { /* Optional: Link to sponsor profile */ }
                                         )
                                     }
+                                }
+                            }
+                        }
+
+                        if (updatedAt.isNotEmpty() && !isLoading && errorMessage == null) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "数据更新于: $updatedAt",
+                                        color = Color.Gray
+                                    )
                                 }
                             }
                         }
