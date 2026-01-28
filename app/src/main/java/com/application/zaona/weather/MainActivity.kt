@@ -64,6 +64,9 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
 
+import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
+import kotlinx.coroutines.delay
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,6 +81,12 @@ class MainActivity : ComponentActivity() {
                 val topBarState = rememberTopAppBarState()
                 val scrollBehavior = MiuixScrollBehavior(state = topBarState)
                 val context = LocalContext.current
+                var advancedSyncMode by remember { mutableStateOf(false) }
+                
+                LaunchedEffect(Unit) {
+                    val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                    advancedSyncMode = prefs.getBoolean("advanced_sync_mode", false)
+                }
 
                 Scaffold(
                     topBar = {
@@ -300,6 +309,44 @@ class MainActivity : ComponentActivity() {
                                                         selectedCityLocation!!.name
                                                     )
 
+                                                    if (advancedSyncMode) {
+                                                        dialogSummary = "正在启动应用并握手..."
+                                                        
+                                                        var isReady = false
+                                                        val listener = OnMessageReceivedListener { _, message ->
+                                                            if (String(message).contains("ready")) {
+                                                                isReady = true
+                                                            }
+                                                        }
+                                                        
+                                                        try {
+                                                            // Register listener
+                                                            messageApi.addListener(nodeId, listener)
+                                                            
+                                                            // Launch app
+                                                            nodeApi.launchWearApp(nodeId, "/home")
+                                                            
+                                                            // Handshake loop
+                                                            var attempts = 0
+                                                            while (attempts < 15 && !isReady) {
+                                                                attempts++
+                                                                messageApi.sendMessage(nodeId, "start".toByteArray())
+                                                                
+                                                                // Check frequently within the 600ms interval (50ms * 12 = 600ms)
+                                                                for (i in 0 until 12) {
+                                                                    delay(50)
+                                                                    if (isReady) break
+                                                                }
+                                                            }
+                                                        } finally {
+                                                            messageApi.removeListener(nodeId)
+                                                        }
+                                                        
+                                                        if (!isReady) {
+                                                            throw Exception("握手失败：设备未响应")
+                                                        }
+                                                    }
+
                                                     dialogSummary = "正在发送数据到设备..."
                                                     
                                                     messageApi.sendMessage(nodeId, jsonString.toByteArray())
@@ -341,7 +388,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             1 -> {
-                                var advancedSyncMode by remember { mutableStateOf(false) }
                                 val showApiSettings = remember { mutableStateOf(false) }
                                 val currentVersion = "v1.0.0"
 
@@ -353,9 +399,13 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         SuperSwitch(
                                             title = "高级同步模式",
-                                            summary = "启用后可同步更多天气数据",
+                                            summary = "启用后先启动应用并握手",
                                             checked = advancedSyncMode,
-                                            onCheckedChange = { advancedSyncMode = it }
+                                            onCheckedChange = { 
+                                                advancedSyncMode = it
+                                                val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                                prefs.edit().putBoolean("advanced_sync_mode", it).apply()
+                                            }
                                         )
                                         SuperArrow(
                                             title = "API 设置",
