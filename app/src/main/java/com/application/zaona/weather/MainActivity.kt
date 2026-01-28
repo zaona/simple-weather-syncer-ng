@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.runtime.rememberCoroutineScope
 import com.application.zaona.weather.model.CityLocation
@@ -58,6 +59,12 @@ import top.yukonga.miuix.kmp.extra.SuperArrow
 import top.yukonga.miuix.kmp.extra.SuperBottomSheet
 import top.yukonga.miuix.kmp.extra.SuperDialog
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.InputField
+import top.yukonga.miuix.kmp.basic.TextField
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Arrangement
 import top.yukonga.miuix.kmp.extra.SuperDropdown
 import top.yukonga.miuix.kmp.extra.SuperSwitch
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -81,11 +88,14 @@ class MainActivity : ComponentActivity() {
                 val topBarState = rememberTopAppBarState()
                 val scrollBehavior = MiuixScrollBehavior(state = topBarState)
                 val context = LocalContext.current
+                val scope = rememberCoroutineScope()
                 var advancedSyncMode by remember { mutableStateOf(false) }
+                var useCustomApi by remember { mutableStateOf(false) }
                 
                 LaunchedEffect(Unit) {
                     val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                     advancedSyncMode = prefs.getBoolean("advanced_sync_mode", false)
+                    useCustomApi = prefs.getBoolean("use_custom_api", false)
                 }
 
                 Scaffold(
@@ -111,7 +121,6 @@ class MainActivity : ComponentActivity() {
                     ) {
                         when (selectedIndex) {
                             0 -> {
-                                val scope = rememberCoroutineScope()
                                 var isConnected by remember { mutableStateOf(false) }
                                 var deviceName by remember { mutableStateOf("") }
                                 var nodeId by remember { mutableStateOf("") }
@@ -245,6 +254,7 @@ class MainActivity : ComponentActivity() {
                                                         else -> "3d"
                                                     }
                                                     val jsonString = WeatherService.fetchDailyWeather(
+                                                        context,
                                                         selectedCityLocation!!.id,
                                                         days,
                                                         selectedCityLocation!!.name
@@ -304,6 +314,7 @@ class MainActivity : ComponentActivity() {
                                                         else -> "3d"
                                                     }
                                                     val jsonString = WeatherService.fetchDailyWeather(
+                                                        context,
                                                         selectedCityLocation!!.id,
                                                         days,
                                                         selectedCityLocation!!.name
@@ -409,6 +420,7 @@ class MainActivity : ComponentActivity() {
                                         )
                                         SuperArrow(
                                             title = "API 设置",
+                                            summary = if (useCustomApi) "自定义" else "默认",
                                             onClick = { showApiSettings.value = true }
                                         )
                                         SuperArrow(
@@ -447,9 +459,151 @@ class MainActivity : ComponentActivity() {
                                     title = "API 设置",
                                     onDismissRequest = { showApiSettings.value = false }
                                 ) {
+                                    // State for API settings
+                                    var customApiHost by remember { mutableStateOf("") }
+                                    var customApiKey by remember { mutableStateOf("") }
+                                    var isTestingConnection by remember { mutableStateOf(false) }
+                                    
+                                    // Dialog for test result
+                                    val showTestDialog = remember { mutableStateOf(false) }
+                                    var testDialogTitle by remember { mutableStateOf("") }
+                                    var testDialogSummary by remember { mutableStateOf("") }
+
+                                    // Load settings
+                                    LaunchedEffect(showApiSettings.value) {
+                                        if (showApiSettings.value) {
+                                            val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                            customApiHost = prefs.getString("custom_api_host", "") ?: ""
+                                            customApiKey = prefs.getString("custom_api_key", "") ?: ""
+                                        }
+                                    }
+
                                     Column(modifier = Modifier.padding(16.dp)) {
-                                        Text("这里是 API 设置面板内容")
-                                        // TODO: Add API settings content
+                                        TextField(
+                                            value = customApiHost,
+                                            onValueChange = { customApiHost = it },
+                                            label = "API Host",
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                        
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        
+                                        TextField(
+                                            value = customApiKey,
+                                            onValueChange = { customApiKey = it },
+                                            label = "API Key",
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                        
+                                        Spacer(modifier = Modifier.height(24.dp))
+                                        
+                                        Button(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            enabled = !isTestingConnection,
+                                            onClick = {
+                                                scope.launch {
+                                                    isTestingConnection = true
+                                                    try {
+                                                        // Test connection
+                                                        val host = customApiHost.ifEmpty { "devapi.qweather.com" }
+                                                        val key = customApiKey
+                                                        
+                                                        val (success, message) = WeatherService.testApiConnection(host, key)
+                                                        
+                                                        if (success) {
+                                                            // Save settings
+                                                            val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                                            prefs.edit()
+                                                                .putBoolean("use_custom_api", true)
+                                                                .putString("custom_api_host", customApiHost)
+                                                                .putString("custom_api_key", customApiKey)
+                                                                .apply()
+                                                            
+                                                            useCustomApi = true
+                                                            testDialogTitle = "保存成功"
+                                                            testDialogSummary = "配置已保存并验证通过"
+                                                        } else {
+                                                            testDialogTitle = "验证失败"
+                                                            testDialogSummary = message
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        testDialogTitle = "错误"
+                                                        testDialogSummary = e.message ?: "未知错误"
+                                                    } finally {
+                                                        isTestingConnection = false
+                                                        showTestDialog.value = true
+                                                    }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColorsPrimary()
+                                        ) {
+                                            if (isTestingConnection) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    color = Color.White,
+                                                    strokeWidth = 2.dp
+                                                )
+                                            } else {
+                                                Text("保存并验证", color = Color.White)
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            Button(
+                                                modifier = Modifier.weight(1f),
+                                                onClick = {
+                                                    // Reset logic
+                                                    customApiHost = ""
+                                                    customApiKey = ""
+                                                    
+                                                    val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                                    prefs.edit()
+                                                        .remove("use_custom_api")
+                                                        .remove("custom_api_host")
+                                                        .remove("custom_api_key")
+                                                        .apply()
+                                                    
+                                                    useCustomApi = false
+                                                    testDialogTitle = "重置成功"
+                                                    testDialogSummary = "已恢复默认配置"
+                                                    showTestDialog.value = true
+                                                },
+                                                colors = ButtonDefaults.buttonColors()
+                                            ) {
+                                                Text("重置")
+                                            }
+                                            
+                                            Button(
+                                                modifier = Modifier.weight(1f),
+                                                onClick = {
+                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.yuque.com/zaona/weather/api"))
+                                                    context.startActivity(intent)
+                                                },
+                                                colors = ButtonDefaults.buttonColors()
+                                            ) {
+                                                Text("帮助")
+                                            }
+                                        }
+                                        
+                                        Spacer(modifier = Modifier.height(24.dp))
+                                    }
+                                    
+                                    SuperDialog(
+                                        title = testDialogTitle,
+                                        summary = testDialogSummary,
+                                        show = showTestDialog,
+                                        onDismissRequest = { showTestDialog.value = false }
+                                    ) {
+                                        TextButton(
+                                            text = "确定",
+                                            onClick = { showTestDialog.value = false },
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
                                     }
                                 }
                             }

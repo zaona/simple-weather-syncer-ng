@@ -24,6 +24,10 @@ object WeatherService {
     private const val PREFS_NAME = "weather_prefs"
     private const val KEY_RECENT_SEARCHES = "weather_recent_searches"
     private const val MAX_RECENT_SEARCHES = 10
+    
+    private const val KEY_USE_CUSTOM_API = "use_custom_api"
+    private const val KEY_CUSTOM_API_HOST = "custom_api_host"
+    private const val KEY_CUSTOM_API_KEY = "custom_api_key"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -32,20 +36,80 @@ object WeatherService {
         
     private val gson = Gson()
 
-    suspend fun searchLocation(cityName: String): List<CityLocation> {
+    private fun getApiHost(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return if (prefs.getBoolean(KEY_USE_CUSTOM_API, false)) {
+            prefs.getString(KEY_CUSTOM_API_HOST, DEFAULT_API_HOST) ?: DEFAULT_API_HOST
+        } else {
+            DEFAULT_API_HOST
+        }
+    }
+
+    private fun getApiKey(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return if (prefs.getBoolean(KEY_USE_CUSTOM_API, false)) {
+            prefs.getString(KEY_CUSTOM_API_KEY, DEFAULT_API_KEY) ?: DEFAULT_API_KEY
+        } else {
+            DEFAULT_API_KEY
+        }
+    }
+
+    suspend fun testApiConnection(host: String, key: String): Pair<Boolean, String> {
+        if (host.isEmpty()) return false to "API Host 不能为空"
+        if (key.isEmpty()) return false to "API Key 不能为空"
+
+        val url = "https://$host/geo/v2/city/lookup?location=北京&key=$key"
+        
+        return withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("X-Android-Package-Name", ANDROID_PACKAGE_NAME)
+                    .header("X-Android-Cert", ANDROID_CERT_SHA1)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    when (response.code) {
+                        200 -> {
+                            val responseBody = response.body?.string() ?: return@withContext false to "Empty response"
+                            val jsonObject = gson.fromJson(responseBody, com.google.gson.JsonObject::class.java)
+                            val code = jsonObject.get("code")?.asString
+                            if (code == "200") {
+                                true to "连接成功"
+                            } else {
+                                false to "API Error: $code"
+                            }
+                        }
+                        401 -> false to "API密钥无效或已过期"
+                        403 -> false to "访问被拒绝，请检查API权限"
+                        429 -> false to "请求过于频繁，请稍后再试"
+                        else -> false to "连接失败: ${response.code}"
+                    }
+                }
+            } catch (e: Exception) {
+                false to "连接异常: ${e.message}"
+            }
+        }
+    }
+
+    suspend fun searchLocation(context: Context, cityName: String): List<CityLocation> {
         if (cityName.trim().isEmpty()) {
             throw Exception("请输入城市名称")
         }
 
-        val url = "https://$DEFAULT_API_HOST/geo/v2/city/lookup?location=$cityName&key=$DEFAULT_API_KEY"
+        val host = getApiHost(context)
+        val key = getApiKey(context)
+        val url = "https://$host/geo/v2/city/lookup?location=$cityName&key=$key"
         return executeGeoRequest(url)
     }
 
-    suspend fun getCityByCoordinates(longitude: Double, latitude: Double): CityLocation? {
+    suspend fun getCityByCoordinates(context: Context, longitude: Double, latitude: Double): CityLocation? {
         // Format: longitude,latitude (e.g. 116.41,39.92)
         // Keep 2 decimal places as in v1
         val locationParam = String.format("%.2f,%.2f", longitude, latitude)
-        val url = "https://$DEFAULT_API_HOST/geo/v2/city/lookup?location=$locationParam&key=$DEFAULT_API_KEY"
+        val host = getApiHost(context)
+        val key = getApiKey(context)
+        val url = "https://$host/geo/v2/city/lookup?location=$locationParam&key=$key"
         
         val locations = executeGeoRequest(url)
         return locations.firstOrNull()
@@ -78,8 +142,10 @@ object WeatherService {
         }
     }
 
-    suspend fun fetchDailyWeather(locationId: String, days: String, cityName: String): String {
-        val url = "https://$DEFAULT_API_HOST/v7/weather/$days?location=$locationId&key=$DEFAULT_API_KEY"
+    suspend fun fetchDailyWeather(context: Context, locationId: String, days: String, cityName: String): String {
+        val host = getApiHost(context)
+        val key = getApiKey(context)
+        val url = "https://$host/v7/weather/$days?location=$locationId&key=$key"
         
         return withContext(Dispatchers.IO) {
             val request = Request.Builder()

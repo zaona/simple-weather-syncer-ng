@@ -123,7 +123,7 @@ class LocationPickerActivity : ComponentActivity() {
                         scope.launch {
                             try {
                                 val location = locationHelper.getCurrentLocation()
-                                val city = WeatherService.getCityByCoordinates(location.longitude, location.latitude)
+                                val city = WeatherService.getCityByCoordinates(context, location.longitude, location.latitude)
                                 if (city != null) {
                                     locatedCity = city
                                     dialogTitle = "定位成功"
@@ -183,7 +183,7 @@ class LocationPickerActivity : ComponentActivity() {
                                             if (it.isNotEmpty()) {
                                                 scope.launch {
                                                     try {
-                                                        val results = WeatherService.searchLocation(it)
+                                                        val results = WeatherService.searchLocation(context, it)
                                                         searchResults.clear()
                                                         searchResults.addAll(results)
                                                     } catch (e: Exception) {
@@ -276,7 +276,7 @@ class LocationPickerActivity : ComponentActivity() {
                                                     scope.launch {
                                                         try {
                                                             val location = locationHelper.getCurrentLocation()
-                                                            val city = WeatherService.getCityByCoordinates(location.longitude, location.latitude)
+                                                            val city = WeatherService.getCityByCoordinates(context, location.longitude, location.latitude)
                                                             if (city != null) {
                                                                 locatedCity = city
                                                                 dialogTitle = "定位成功"
