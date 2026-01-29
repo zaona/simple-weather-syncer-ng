@@ -63,7 +63,9 @@ import top.yukonga.miuix.kmp.extra.WindowDialog
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
@@ -82,18 +84,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SimpleweathersyncerngTheme {
-                var selectedIndex by remember { mutableIntStateOf(0) }
-                val navItems = listOf(
-                    NavigationItem("同步", MiuixIcons.Send),
-                    NavigationItem("设置", MiuixIcons.Settings)
-                )
                 val topBarState = rememberTopAppBarState()
                 val scrollBehavior = MiuixScrollBehavior(state = topBarState)
                 val context = LocalContext.current
                 val scope = rememberCoroutineScope()
-                var advancedSyncMode by remember { mutableStateOf(false) }
-                var useCustomApi by remember { mutableStateOf(false) }
-
+                
                 // Hoisted update state
                 val showUpdateDialog = remember { mutableStateOf(false) }
                 var updateDialogTitle by remember { mutableStateOf("") }
@@ -102,10 +97,6 @@ class MainActivity : ComponentActivity() {
                 var isForceUpdate by remember { mutableStateOf(false) }
                 
                 LaunchedEffect(Unit) {
-                    val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                    advancedSyncMode = prefs.getBoolean("advanced_sync_mode", false)
-                    useCustomApi = prefs.getBoolean("use_custom_api", false)
-
                     // Auto check for update
                     launch {
                         try {
@@ -128,14 +119,19 @@ class MainActivity : ComponentActivity() {
                     topBar = {
                         TopAppBar(
                             title = "简明天气同步器",
-                            scrollBehavior = scrollBehavior
-                        )
-                    },
-                    bottomBar = {
-                        NavigationBar(
-                            items = navItems,
-                            selected = selectedIndex,
-                            onClick = { selectedIndex = it }
+                            scrollBehavior = scrollBehavior,
+                            actions = {
+                                Icon(
+                                    imageVector = MiuixIcons.Settings,
+                                    contentDescription = "设置",
+                                    modifier = Modifier
+                                        .padding(end = 26.dp)
+                                        .clickable { 
+                                            val intent = Intent(context, SettingsActivity::class.java)
+                                            context.startActivity(intent)
+                                        }
+                                )
+                            }
                         )
                     }
                 ) { innerPadding ->
@@ -145,8 +141,6 @@ class MainActivity : ComponentActivity() {
                             .padding(innerPadding)
                             .nestedScroll(scrollBehavior.nestedScrollConnection)
                     ) {
-                        when (selectedIndex) {
-                            0 -> {
                                 var isConnected by remember { mutableStateOf(false) }
                                 var deviceName by remember { mutableStateOf("") }
                                 var nodeId by remember { mutableStateOf("") }
@@ -306,7 +300,7 @@ class MainActivity : ComponentActivity() {
                                         },
                                         colors = ButtonDefaults.buttonColors()
                                     ) {
-                                        Text("复制数据", color = if (isSystemInDarkTheme()) Color.White else Color.Black)
+                                        Text("复制数据")
                                     }
 
                                     Button(
@@ -330,6 +324,8 @@ class MainActivity : ComponentActivity() {
                                             }
                                             
                                             scope.launch {
+                                                val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                                val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", false)
                                                 try {
                                                     dialogTitle = "正在同步"
                                                     dialogSummary = "正在获取天气数据..."
@@ -428,246 +424,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            1 -> {
-                                val showApiSettings = remember { mutableStateOf(false) }
-                                val currentVersion = remember {
-                                    try {
-                                        context.packageManager.getPackageInfo(context.packageName, 0).versionName
-                                    } catch (e: Exception) {
-                                        "1.0"
-                                    }
-                                }
-
-                                Column(
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Card(
-                                        modifier = Modifier.padding(16.dp)
-                                    ) {
-                                        SuperSwitch(
-                                            title = "高级同步模式",
-                                            summary = "启用后先启动应用并握手",
-                                            checked = advancedSyncMode,
-                                            onCheckedChange = { 
-                                                advancedSyncMode = it
-                                                val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                                                prefs.edit().putBoolean("advanced_sync_mode", it).apply()
-                                            }
-                                        )
-                                        SuperArrow(
-                                            title = "API 设置",
-                                            summary = if (useCustomApi) "自定义" else "默认",
-                                            onClick = { showApiSettings.value = true }
-                                        )
-                                        SuperArrow(
-                                            title = "检查更新",
-                                            summary = currentVersion,
-                                            onClick = { 
-                                                scope.launch {
-                                                    val result = UpdateService.checkForUpdateManually(context)
-                                                    if (result.checkFailed) {
-                                                        updateDialogTitle = "检查更新失败"
-                                                        updateDialogSummary = result.errorMessage ?: "网络连接失败，请稍后重试"
-                                                        updateDownloadUrl = null
-                                                        showUpdateDialog.value = true
-                                                    } else if (result.hasUpdate && result.updateInfo != null) {
-                                                        val info = result.updateInfo
-                                                        updateDialogTitle = "发现新版本：${info.versionName}"
-                                                        updateDialogSummary = info.updateDescription
-                                                        updateDownloadUrl = info.downloadUrl
-                                                        isForceUpdate = info.forceUpdate
-                                                        showUpdateDialog.value = true
-                                                    } else {
-                                                        updateDialogTitle = "已是最新版本"
-                                                        updateDialogSummary = "当前已是最新版本，无需更新"
-                                                        updateDownloadUrl = null
-                                                        showUpdateDialog.value = true
-                                                    }
-                                                }
-                                            }
-                                        )
-                                    }
-
-                                    SmallTitle(text = "特别感谢")
-                                    Card(
-                                        modifier = Modifier.padding(horizontal = 16.dp)
-                                    ) {
-                                        SuperArrow(
-                                            title = "赞助者",
-                                            onClick = {
-                                                val intent = Intent(context, SponsorActivity::class.java)
-                                                context.startActivity(intent)
-                                            }
-                                        )
-                                        BasicComponent(
-                                            title = "Waijade",
-                                            summary = "为快应用与同步器插件贡献代码",
-                                            onClick = { /* Optional: Link to profile */ }
-                                        )
-                                        BasicComponent(
-                                            title = "xinghengCN",
-                                            summary = "为作者提供米环9和9pro供测试",
-                                            onClick = { /* Optional: Link to profile */ }
-                                        )
-                                    }
-                                }
-
-                                SuperBottomSheet(
-                                    show = showApiSettings,
-                                    title = "API 设置",
-                                    onDismissRequest = { showApiSettings.value = false },
-                                    defaultWindowInsetsPadding = false
-                                ) {
-                                    // State for API settings
-                                    var customApiHost by remember { mutableStateOf("") }
-                                    var customApiKey by remember { mutableStateOf("") }
-                                    var isTestingConnection by remember { mutableStateOf(false) }
-                                    
-                                    // Dialog for test result
-                                    val showTestDialog = remember { mutableStateOf(false) }
-                                    var testDialogTitle by remember { mutableStateOf("") }
-                                    var testDialogSummary by remember { mutableStateOf("") }
-
-                                    // Load settings
-                                    LaunchedEffect(showApiSettings.value) {
-                                        if (showApiSettings.value) {
-                                            val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                                            customApiHost = prefs.getString("custom_api_host", "") ?: ""
-                                            customApiKey = prefs.getString("custom_api_key", "") ?: ""
-                                        }
-                                    }
-
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        TextField(
-                                            value = customApiHost,
-                                            onValueChange = { customApiHost = it },
-                                            label = "API Host",
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                        
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        
-                                        TextField(
-                                            value = customApiKey,
-                                            onValueChange = { customApiKey = it },
-                                            label = "API Key",
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                        
-                                        Spacer(modifier = Modifier.height(24.dp))
-                                        
-                                        Button(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            enabled = !isTestingConnection,
-                                            onClick = {
-                                                scope.launch {
-                                                    isTestingConnection = true
-                                                    try {
-                                                        // Test connection
-                                                        val host = customApiHost
-                                                        val key = customApiKey
-                                                        
-                                                        val (success, message) = WeatherService.testApiConnection(host, key)
-                                                        
-                                                        if (success) {
-                                                            // Save settings
-                                                            val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                                                            prefs.edit()
-                                                                .putBoolean("use_custom_api", true)
-                                                                .putString("custom_api_host", customApiHost)
-                                                                .putString("custom_api_key", customApiKey)
-                                                                .apply()
-                                                            
-                                                            useCustomApi = true
-                                                            testDialogTitle = "保存成功"
-                                                            testDialogSummary = "配置已保存并验证通过"
-                                                        } else {
-                                                            testDialogTitle = "验证失败"
-                                                            testDialogSummary = message
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        testDialogTitle = "错误"
-                                                        testDialogSummary = e.message ?: "未知错误"
-                                                    } finally {
-                                                        isTestingConnection = false
-                                                        showTestDialog.value = true
-                                                    }
-                                                }
-                                            },
-                                            colors = ButtonDefaults.buttonColorsPrimary()
-                                        ) {
-                                            if (isTestingConnection) {
-                                                InfiniteProgressIndicator(
-                                                    modifier = Modifier.size(20.dp),
-                                                    color = Color.White
-                                                )
-                                            } else {
-                                                Text("保存并验证", color = Color.White)
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(16.dp))
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                        ) {
-                                            Button(
-                                                modifier = Modifier.weight(1f),
-                                                onClick = {
-                                                    // Reset logic
-                                                    customApiHost = ""
-                                                    customApiKey = ""
-                                                    
-                                                    val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                                                    prefs.edit()
-                                                        .remove("use_custom_api")
-                                                        .remove("custom_api_host")
-                                                        .remove("custom_api_key")
-                                                        .apply()
-                                                    
-                                                    useCustomApi = false
-                                                    testDialogTitle = "重置成功"
-                                                    testDialogSummary = "已恢复默认配置"
-                                                    showTestDialog.value = true
-                                                },
-                                                colors = ButtonDefaults.buttonColors()
-                                            ) {
-                                                Text("重置")
-                                            }
-                                            
-                                            Button(
-                                                modifier = Modifier.weight(1f),
-                                                onClick = {
-                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.yuque.com/zaona/weather/api"))
-                                                    context.startActivity(intent)
-                                                },
-                                                colors = ButtonDefaults.buttonColors()
-                                            ) {
-                                                Text("帮助")
-                                            }
-                                        }
-                                        
-                                        Spacer(modifier = Modifier.height(24.dp))
-                                    }
-                                    
-                                    SuperDialog(
-                                        title = testDialogTitle,
-                                        summary = testDialogSummary,
-                                        show = showTestDialog,
-                                        onDismissRequest = { showTestDialog.value = false }
-                                    ) {
-                                        TextButton(
-                                            text = "确定",
-                                            onClick = { showTestDialog.value = false },
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
-                }
 
                 WindowDialog(
                     title = updateDialogTitle,
