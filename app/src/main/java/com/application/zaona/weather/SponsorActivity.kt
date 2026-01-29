@@ -43,6 +43,11 @@ import top.yukonga.miuix.kmp.icon.extended.Back
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.union
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.whenStarted
@@ -95,6 +100,7 @@ class SponsorActivity : ComponentActivity() {
                 }
 
                 Scaffold(
+                    contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
                     topBar = {
                         TopAppBar(
                             title = "赞助者鸣谢",
@@ -116,6 +122,7 @@ class SponsorActivity : ComponentActivity() {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
+                            .overScrollVertical()
                             .nestedScroll(scrollBehavior.nestedScrollConnection),
                         contentPadding = innerPadding
                     ) {

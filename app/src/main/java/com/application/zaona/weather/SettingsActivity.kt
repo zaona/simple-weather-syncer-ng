@@ -65,6 +65,7 @@ import top.yukonga.miuix.kmp.extra.WindowDialog
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -120,7 +121,6 @@ class SettingsActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
-                            .nestedScroll(scrollBehavior.nestedScrollConnection)
                     ) {
                         val showApiSettings = remember { mutableStateOf(false) }
                         val currentVersion = remember {
@@ -131,11 +131,13 @@ class SettingsActivity : ComponentActivity() {
                             }
                         }
 
-                        Column(
+                        androidx.compose.foundation.lazy.LazyColumn(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
+                                .overScrollVertical()
+                                .nestedScroll(scrollBehavior.nestedScrollConnection)
                         ) {
+                            item {
                             Card(
                                 modifier = Modifier.padding(16.dp)
                             ) {
@@ -215,6 +217,7 @@ class SettingsActivity : ComponentActivity() {
                             }
                             
                             Spacer(modifier = Modifier.height(16.dp))
+                            }
                         }
 
                         SuperBottomSheet(

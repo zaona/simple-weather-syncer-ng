@@ -64,16 +64,24 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.union
 import top.yukonga.miuix.kmp.extra.SuperDropdown
 import top.yukonga.miuix.kmp.extra.SuperSwitch
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
 import kotlinx.coroutines.delay
@@ -116,21 +124,24 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(
+                    contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
                     topBar = {
                         TopAppBar(
                             title = "简明天气同步器",
                             scrollBehavior = scrollBehavior,
                             actions = {
-                                Icon(
-                                    imageVector = MiuixIcons.Settings,
-                                    contentDescription = "设置",
-                                    modifier = Modifier
-                                        .padding(end = 26.dp)
-                                        .clickable { 
-                                            val intent = Intent(context, SettingsActivity::class.java)
-                                            context.startActivity(intent)
-                                        }
-                                )
+                                IconButton(
+                                    modifier = Modifier.padding(end = 16.dp),
+                                    onClick = {
+                                        val intent = Intent(context, SettingsActivity::class.java)
+                                        context.startActivity(intent)
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = MiuixIcons.Settings,
+                                        contentDescription = "设置"
+                                    )
+                                }
                             }
                         )
                     }
@@ -139,7 +150,6 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
-                            .nestedScroll(scrollBehavior.nestedScrollConnection)
                     ) {
                                 var isConnected by remember { mutableStateOf(false) }
                                 var deviceName by remember { mutableStateOf("") }
@@ -215,9 +225,13 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
-                                Column(
-                                    modifier = Modifier.fillMaxSize()
+                                androidx.compose.foundation.lazy.LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .overScrollVertical()
+                                        .nestedScroll(scrollBehavior.nestedScrollConnection)
                                 ) {
+                                    item {
                                     LaunchedEffect(Unit) {
                                         checkConnection()
                                     }
@@ -421,6 +435,7 @@ class MainActivity : ComponentActivity() {
                                             onClick = { showDialog.value = false },
                                             modifier = Modifier.fillMaxWidth()
                                         )
+                                    }
                                     }
                                 }
                             }
