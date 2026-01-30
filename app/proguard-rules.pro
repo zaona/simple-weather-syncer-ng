@@ -36,3 +36,11 @@
 
 # Keep Wearable library classes as they might be used via JNI or reflection
 -keep class com.xiaomi.xms.wearable.** { *; }
+
+# Microsoft Clarity
+-keep class com.microsoft.clarity.** { *; }
+-keepclassmembers class com.microsoft.clarity.** { *; }
+-keep interface com.microsoft.clarity.** { *; }
+-keep enum com.microsoft.clarity.** { *; }
+-keepnames class com.microsoft.clarity.** { *; }
+-dontwarn com.microsoft.clarity.**

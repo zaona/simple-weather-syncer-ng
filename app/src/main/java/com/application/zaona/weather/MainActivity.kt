@@ -85,10 +85,20 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
 import kotlinx.coroutines.delay
+import com.microsoft.clarity.Clarity
+import com.microsoft.clarity.ClarityConfig
+import com.microsoft.clarity.models.LogLevel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        val config = ClarityConfig(
+            projectId = "v9ht6u2tnu",
+            logLevel = LogLevel.None
+        )
+        Clarity.initialize(applicationContext, config)
+
         enableEdgeToEdge()
         setContent {
             SimpleweathersyncerngTheme {

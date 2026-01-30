@@ -97,6 +97,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation("com.microsoft.clarity:clarity-compose:3.+")
     implementation(libs.miuix.android)
     implementation(libs.miuix.icons.android)
     testImplementation(libs.junit)
