@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -98,6 +99,12 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation("com.microsoft.clarity:clarity-compose:3.+")
     implementation(libs.miuix.android)
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.auth)
+    implementation(libs.multiplatform.settings)
+    implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.core)
     implementation(libs.miuix.icons.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

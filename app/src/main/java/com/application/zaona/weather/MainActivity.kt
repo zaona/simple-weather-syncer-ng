@@ -88,10 +88,16 @@ import kotlinx.coroutines.delay
 import com.microsoft.clarity.Clarity
 import com.microsoft.clarity.ClarityConfig
 import com.microsoft.clarity.models.LogLevel
+import androidx.lifecycle.lifecycleScope
+
+import com.application.zaona.weather.service.SupabaseService
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize Supabase Service
+        SupabaseService.init(applicationContext)
         
         val config = ClarityConfig(
             projectId = "v9ht6u2tnu",
@@ -166,13 +172,19 @@ class MainActivity : ComponentActivity() {
                                 var nodeId by remember { mutableStateOf("") }
                                 val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
                                 val messageApi = remember { Wearable.getMessageApi(context.applicationContext) }
-
+                                val scope = rememberCoroutineScope()
+                                
                                 fun checkConnection() {
                                     nodeApi.connectedNodes.addOnSuccessListener { nodes ->
                                         if (nodes.isNotEmpty()) {
                                             isConnected = true
                                             deviceName = nodes[0].name
                                             nodeId = nodes[0].id
+                                            
+                                            // Report device name to Supabase
+                                            scope.launch {
+                                                SupabaseService.reportDeviceName(deviceName)
+                                            }
                                         } else {
                                             isConnected = false
                                             deviceName = ""
@@ -182,7 +194,7 @@ class MainActivity : ComponentActivity() {
                                         isConnected = false
                                     }
                                 }
-
+                                
                                 LaunchedEffect(Unit) {
                                     checkConnection()
                                 }
@@ -242,10 +254,6 @@ class MainActivity : ComponentActivity() {
                                         .nestedScroll(scrollBehavior.nestedScrollConnection)
                                 ) {
                                     item {
-                                    LaunchedEffect(Unit) {
-                                        checkConnection()
-                                    }
-
                                     Card(
                                         modifier = Modifier.padding(16.dp)
                                     ) {
