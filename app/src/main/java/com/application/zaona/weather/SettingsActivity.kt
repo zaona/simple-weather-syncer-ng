@@ -78,7 +78,7 @@ class SettingsActivity : ComponentActivity() {
                 val topBarState = rememberTopAppBarState()
                 val scrollBehavior = MiuixScrollBehavior(state = topBarState)
 
-                var advancedSyncMode by remember { mutableStateOf(false) }
+                var advancedSyncMode by remember { mutableStateOf(true) }
                 var useCustomApi by remember { mutableStateOf(false) }
 
                 // Hoisted update state
@@ -93,7 +93,7 @@ class SettingsActivity : ComponentActivity() {
 
                 LaunchedEffect(Unit) {
                     val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                    advancedSyncMode = prefs.getBoolean("advanced_sync_mode", false)
+                    advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
                     useCustomApi = prefs.getBoolean("use_custom_api", false)
                 }
 

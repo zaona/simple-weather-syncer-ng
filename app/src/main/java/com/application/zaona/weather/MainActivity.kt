@@ -357,7 +357,7 @@ class MainActivity : ComponentActivity() {
                                             
                                             scope.launch {
                                                 val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                                                val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", false)
+                                                val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
                                                 try {
                                                     dialogTitle = "正在同步"
                                                     dialogSummary = "正在获取天气数据..."
