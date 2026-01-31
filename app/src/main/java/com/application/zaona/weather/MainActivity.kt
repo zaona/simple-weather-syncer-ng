@@ -81,6 +81,7 @@ import top.yukonga.miuix.kmp.extra.SuperSwitch
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
@@ -150,6 +151,18 @@ class MainActivity : ComponentActivity() {
                             title = "简明天气同步器",
                             scrollBehavior = scrollBehavior,
                             actions = {
+                                IconButton(
+                                    modifier = Modifier.padding(end = 8.dp),
+                                    onClick = {
+                                        val intent = Intent(context, SponsorActivity::class.java)
+                                        context.startActivity(intent)
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = MiuixIcons.Favorites,
+                                        contentDescription = "赞助"
+                                    )
+                                }
                                 IconButton(
                                     modifier = Modifier.padding(end = 16.dp),
                                     onClick = {

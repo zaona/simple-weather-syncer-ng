@@ -138,8 +138,10 @@ class SettingsActivity : ComponentActivity() {
                                 .nestedScroll(scrollBehavior.nestedScrollConnection)
                         ) {
                             item {
+                            Spacer(modifier = Modifier.height(16.dp))
+
                             Card(
-                                modifier = Modifier.padding(16.dp)
+                                modifier = Modifier.padding(horizontal = 16.dp)
                             ) {
                                 SuperSwitch(
                                     title = "高级同步模式",
@@ -192,8 +194,33 @@ class SettingsActivity : ComponentActivity() {
                                     }
                                 )
                             }
+                            }
 
-                            SmallTitle(text = "特别感谢")
+                            item {
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            SmallTitle(text = "更多内容")
+                            Card(
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            ) {
+                                SuperArrow(
+                                    title = "帮助文档",
+                                    onClick = {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.yuque.com/zaona/weather"))
+                                        context.startActivity(intent)
+                                    }
+                                )
+                                BasicComponent(
+                                    title = "QQ交流群",
+                                    summary = "947038648"
+                                )
+                            }
+                            }
+
+                            item {
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            SmallTitle(text = "特别鸣谢")
                             Card(
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             ) {
