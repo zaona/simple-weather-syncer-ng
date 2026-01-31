@@ -84,7 +84,11 @@ import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
+import com.xiaomi.xms.wearable.node.NodeApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import com.microsoft.clarity.Clarity
 import com.microsoft.clarity.ClarityConfig
 import com.microsoft.clarity.models.LogLevel
@@ -356,6 +360,25 @@ class MainActivity : ComponentActivity() {
                                             }
                                             
                                             scope.launch {
+                                                try {
+                                                    dialogTitle = "正在检查"
+                                                    dialogSummary = "正在检查手表应用安装状态..."
+                                                    showDialog.value = true
+                                                    
+                                                    val isInstalled = checkWatchAppInstalled(nodeApi, nodeId)
+                                                    if (!isInstalled) {
+                                                        dialogTitle = "提示"
+                                                        dialogSummary = "手表端未安装应用，请先安装"
+                                                        showDialog.value = true
+                                                        return@launch
+                                                    }
+                                                } catch (e: Exception) {
+                                                     dialogTitle = "检查失败"
+                                                     dialogSummary = "检查应用安装状态失败: ${e.message}"
+                                                     showDialog.value = true
+                                                     return@launch
+                                                }
+
                                                 val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                                                 val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
                                                 try {
@@ -507,6 +530,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private suspend fun checkWatchAppInstalled(nodeApi: NodeApi, nodeId: String): Boolean = suspendCancellableCoroutine { cont ->
+        nodeApi.isWearAppInstalled(nodeId)
+            .addOnSuccessListener { isInstalled ->
+                cont.resume(isInstalled)
+            }
+            .addOnFailureListener { e ->
+                cont.resumeWithException(e)
+            }
     }
 }
 
