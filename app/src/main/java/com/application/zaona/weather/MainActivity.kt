@@ -86,6 +86,8 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
 import com.xiaomi.xms.wearable.node.NodeApi
+import com.xiaomi.xms.wearable.auth.AuthApi
+import com.xiaomi.xms.wearable.auth.Permission
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -189,7 +191,29 @@ class MainActivity : ComponentActivity() {
                                 var nodeId by remember { mutableStateOf("") }
                                 val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
                                 val messageApi = remember { Wearable.getMessageApi(context.applicationContext) }
+                                val authApi = remember { Wearable.getAuthApi(context.applicationContext) }
                                 val scope = rememberCoroutineScope()
+
+                                fun checkAndRequestPermissions(targetNodeId: String) {
+                                    val permissions = arrayOf(Permission.DEVICE_MANAGER, Permission.NOTIFY)
+                                    authApi.checkPermissions(targetNodeId, permissions).addOnSuccessListener { results ->
+                                        var allGranted = true
+                                        if (results != null && results.size == permissions.size) {
+                                            for (result in results) {
+                                                if (!result) {
+                                                    allGranted = false
+                                                    break
+                                                }
+                                            }
+                                        } else {
+                                            allGranted = false
+                                        }
+
+                                        if (!allGranted) {
+                                            authApi.requestPermission(targetNodeId, *permissions)
+                                        }
+                                    }
+                                }
                                 
                                 fun checkConnection() {
                                     nodeApi.connectedNodes.addOnSuccessListener { nodes ->
@@ -202,6 +226,8 @@ class MainActivity : ComponentActivity() {
                                             scope.launch {
                                                 SupabaseService.reportDeviceName(deviceName)
                                             }
+
+                                            checkAndRequestPermissions(nodeId)
                                         } else {
                                             isConnected = false
                                             deviceName = ""
