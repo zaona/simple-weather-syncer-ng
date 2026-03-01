@@ -28,6 +28,7 @@ const val SUPABASE_KEY = "sb_publishable_4-KIUmkjcmU0A98w-hP_XA_GFNJo5KL"
 data class UserDevice(
     val device_id: String, // Unique device identifier (Primary Key)
     val device_name: String,
+    val source: String,
     val created_at: String? = null,
     val updated_at: String? = null
 )
@@ -92,7 +93,8 @@ object SupabaseService {
                 // Note: updated_at is handled by database trigger
                 val device = UserDevice(
                     device_id = deviceId,
-                    device_name = deviceName
+                    device_name = deviceName,
+                    source = "app"
                 )
                 
                 supabase.from("user_devices").upsert(device) {
