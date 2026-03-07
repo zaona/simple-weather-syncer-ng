@@ -60,6 +60,7 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.extra.SuperArrow
 import top.yukonga.miuix.kmp.extra.SuperBottomSheet
 import top.yukonga.miuix.kmp.extra.SuperDialog
+import top.yukonga.miuix.kmp.extra.SuperDropdown
 import top.yukonga.miuix.kmp.extra.SuperSwitch
 import top.yukonga.miuix.kmp.extra.WindowDialog
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -80,6 +81,7 @@ class SettingsActivity : ComponentActivity() {
 
                 var advancedSyncMode by remember { mutableStateOf(true) }
                 var useCustomApi by remember { mutableStateOf(false) }
+                var themeModeIndex by remember { mutableStateOf(0) }
 
                 // Hoisted update state
                 val showUpdateDialog = remember { mutableStateOf(false) }
@@ -95,6 +97,11 @@ class SettingsActivity : ComponentActivity() {
                     val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                     advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
                     useCustomApi = prefs.getBoolean("use_custom_api", false)
+                    themeModeIndex = when (prefs.getString("theme_mode", "system")) {
+                        "light" -> 1
+                        "dark" -> 2
+                        else -> 0
+                    }
                 }
 
                 Scaffold(
@@ -143,6 +150,7 @@ class SettingsActivity : ComponentActivity() {
                             Card(
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             ) {
+                                val themeModeOptions = listOf("跟随系统", "浅色", "深色")
                                 SuperSwitch(
                                     title = "高级同步模式",
                                     summary = "启用后先启动应用并握手",
@@ -151,6 +159,21 @@ class SettingsActivity : ComponentActivity() {
                                         advancedSyncMode = it
                                         val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                                         prefs.edit().putBoolean("advanced_sync_mode", it).apply()
+                                    }
+                                )
+                                SuperDropdown(
+                                    title = "主题模式",
+                                    items = themeModeOptions,
+                                    selectedIndex = themeModeIndex,
+                                    onSelectedIndexChange = {
+                                        themeModeIndex = it
+                                        val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                        val modeValue = when (it) {
+                                            1 -> "light"
+                                            2 -> "dark"
+                                            else -> "system"
+                                        }
+                                        prefs.edit().putString("theme_mode", modeValue).apply()
                                     }
                                 )
                                 SuperArrow(
@@ -210,9 +233,13 @@ class SettingsActivity : ComponentActivity() {
                                         context.startActivity(intent)
                                     }
                                 )
-                                BasicComponent(
+                                SuperArrow(
                                     title = "QQ交流群",
-                                    summary = "947038648"
+                                    summary = "947038648",
+                                    onClick = {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/afSsUcRWjS"))
+                                        context.startActivity(intent)
+                                    }
                                 )
                             }
                             }
