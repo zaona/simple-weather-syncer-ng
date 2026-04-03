@@ -126,6 +126,11 @@ class MainActivity : ComponentActivity() {
                 var updateDialogSummary by remember { mutableStateOf("") }
                 var updateDownloadUrl by remember { mutableStateOf<String?>(null) }
                 var isForceUpdate by remember { mutableStateOf(false) }
+                val showDialog = remember { mutableStateOf(false) }
+                var dialogTitle by remember { mutableStateOf("") }
+                var dialogSummary by remember { mutableStateOf("") }
+                val showWeatherDataDialog = remember { mutableStateOf(false) }
+                var weatherDataPreview by remember { mutableStateOf("") }
                 
                 LaunchedEffect(Unit) {
                     // Auto check for update
@@ -244,6 +249,7 @@ class MainActivity : ComponentActivity() {
                                 
                                 val syncDaysOptions = listOf("3天", "7天", "10天", "15天", "30天")
                                 var selectedSyncDaysIndex by remember { mutableIntStateOf(0) }
+                                var syncHourlyWeather by remember { mutableStateOf(false) }
                                 
                                 var currentLocation by remember { mutableStateOf("未设置") }
                                 var selectedCityLocation by remember { mutableStateOf<CityLocation?>(null) }
@@ -252,6 +258,7 @@ class MainActivity : ComponentActivity() {
                                 LaunchedEffect(Unit) {
                                     val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                                     selectedSyncDaysIndex = prefs.getInt("sync_days_index", 0)
+                                    syncHourlyWeather = prefs.getBoolean("sync_hourly_weather", false)
                                     currentLocation = prefs.getString("selected_location_name", "未设置") ?: "未设置"
                                     val locationJson = prefs.getString("selected_location_json", null)
                                     if (locationJson != null) {
@@ -262,10 +269,6 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
-
-                                val showDialog = remember { mutableStateOf(false) }
-                                var dialogTitle by remember { mutableStateOf("") }
-                                var dialogSummary by remember { mutableStateOf("") }
 
                                 val locationPickerLauncher = rememberLauncherForActivityResult(
                                     contract = ActivityResultContracts.StartActivityForResult()
@@ -327,6 +330,16 @@ class MainActivity : ComponentActivity() {
                                                 prefs.edit().putInt("sync_days_index", it).apply()
                                             }
                                         )
+                                        SuperSwitch(
+                                            title = "同步逐小时天气数据",
+                                            summary = "开启后同步最近72小时逐小时天气",
+                                            checked = syncHourlyWeather,
+                                            onCheckedChange = {
+                                                syncHourlyWeather = it
+                                                val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                                prefs.edit().putBoolean("sync_hourly_weather", it).apply()
+                                            }
+                                        )
                                     }
 
                                     Button(
@@ -352,20 +365,16 @@ class MainActivity : ComponentActivity() {
                                                         4 -> "30d"
                                                         else -> "3d"
                                                     }
-                                                    val jsonString = WeatherService.fetchDailyWeather(
+                                                    val jsonString = WeatherService.fetchWeatherData(
                                                         context,
                                                         selectedCityLocation!!.id,
                                                         days,
-                                                        selectedCityLocation!!.name
+                                                        selectedCityLocation!!.name,
+                                                        syncHourlyWeather
                                                     )
-                                                    
-                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                    val clip = ClipData.newPlainText("Weather Data", jsonString)
-                                                    clipboard.setPrimaryClip(clip)
-                                                    
-                                                    dialogTitle = "复制成功"
-                                                    dialogSummary = "天气数据已复制到剪贴板"
-                                                    showDialog.value = true
+
+                                                    weatherDataPreview = jsonString
+                                                    showWeatherDataDialog.value = true
                                                 } catch (e: Exception) {
                                                     dialogTitle = "获取失败"
                                                     dialogSummary = e.message ?: "未知错误"
@@ -433,11 +442,12 @@ class MainActivity : ComponentActivity() {
                                                         4 -> "30d"
                                                         else -> "3d"
                                                     }
-                                                    val jsonString = WeatherService.fetchDailyWeather(
+                                                    val jsonString = WeatherService.fetchWeatherData(
                                                         context,
                                                         selectedCityLocation!!.id,
                                                         days,
-                                                        selectedCityLocation!!.name
+                                                        selectedCityLocation!!.name,
+                                                        syncHourlyWeather
                                                     )
 
                                                     if (advancedSyncMode) {
@@ -520,6 +530,53 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                     }
+
+                WindowDialog(
+                    title = "天气数据预览",
+                    summary = "可预览后复制到剪贴板",
+                    show = showWeatherDataDialog,
+                    onDismissRequest = { showWeatherDataDialog.value = false }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(320.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(weatherDataPreview)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = { showWeatherDataDialog.value = false },
+                            colors = ButtonDefaults.buttonColors()
+                        ) {
+                            Text("关闭")
+                        }
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("Weather Data", weatherDataPreview)
+                                clipboard.setPrimaryClip(clip)
+                                showWeatherDataDialog.value = false
+
+                                dialogTitle = "复制成功"
+                                dialogSummary = "天气数据已复制到剪贴板"
+                                showDialog.value = true
+                            },
+                            colors = ButtonDefaults.buttonColorsPrimary()
+                        ) {
+                            Text("复制", color = Color.White)
+                        }
+                    }
+                }
 
                 WindowDialog(
                     title = updateDialogTitle,

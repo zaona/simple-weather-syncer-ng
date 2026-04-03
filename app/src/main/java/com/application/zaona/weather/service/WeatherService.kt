@@ -1,33 +1,28 @@
 package com.application.zaona.weather.service
 
 import android.content.Context
-import android.content.SharedPreferences
+import com.application.zaona.weather.BuildConfig
 import com.application.zaona.weather.model.CityLocation
 import com.application.zaona.weather.model.GeoResponse
 import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object WeatherService {
-    private const val DEFAULT_API_HOST = "ma7aaq4xg5.re.qweatherapi.com"
-    // TODO: Should be loaded from secure storage or user input
-    private const val DEFAULT_API_KEY = "8e247f6669f14acf848fb2021c9d0f59" 
-    
-    private const val ANDROID_PACKAGE_NAME = "com.application.zaona.weather"
-    private const val ANDROID_CERT_SHA1 = "36:02:8A:67:4E:C2:7A:F6:08:2D:C0:F9:34:B8:93:8A:5A:A6:A2:7E" 
-    
+    private val backendBaseUrl = BuildConfig.WEATHER_BACKEND_BASE_URL.trimEnd('/')
     private const val PREFS_NAME = "weather_prefs"
     private const val KEY_RECENT_SEARCHES = "weather_recent_searches"
     private const val MAX_RECENT_SEARCHES = 10
-    
-    private const val KEY_USE_CUSTOM_API = "use_custom_api"
-    private const val KEY_CUSTOM_API_HOST = "custom_api_host"
-    private const val KEY_CUSTOM_API_KEY = "custom_api_key"
+    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -36,80 +31,24 @@ object WeatherService {
         
     private val gson = Gson()
 
-    private fun getApiHost(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return if (prefs.getBoolean(KEY_USE_CUSTOM_API, false)) {
-            prefs.getString(KEY_CUSTOM_API_HOST, DEFAULT_API_HOST) ?: DEFAULT_API_HOST
-        } else {
-            DEFAULT_API_HOST
-        }
-    }
-
-    private fun getApiKey(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return if (prefs.getBoolean(KEY_USE_CUSTOM_API, false)) {
-            prefs.getString(KEY_CUSTOM_API_KEY, DEFAULT_API_KEY) ?: DEFAULT_API_KEY
-        } else {
-            DEFAULT_API_KEY
-        }
-    }
-
-    suspend fun testApiConnection(host: String, key: String): Pair<Boolean, String> {
-        if (host.isEmpty()) return false to "API Host 不能为空"
-        if (key.isEmpty()) return false to "API Key 不能为空"
-
-        val url = "https://$host/geo/v2/city/lookup?location=北京&key=$key"
-        
-        return withContext(Dispatchers.IO) {
-            try {
-                val request = Request.Builder()
-                    .url(url)
-                    .header("X-Android-Package-Name", ANDROID_PACKAGE_NAME)
-                    .header("X-Android-Cert", ANDROID_CERT_SHA1)
-                    .build()
-
-                client.newCall(request).execute().use { response ->
-                    when (response.code) {
-                        200 -> {
-                            val responseBody = response.body?.string() ?: return@withContext false to "Empty response"
-                            val jsonObject = gson.fromJson(responseBody, com.google.gson.JsonObject::class.java)
-                            val code = jsonObject.get("code")?.asString
-                            if (code == "200") {
-                                true to "连接成功"
-                            } else {
-                                false to "API Error: $code"
-                            }
-                        }
-                        401 -> false to "API密钥无效或已过期"
-                        403 -> false to "访问被拒绝，请检查API权限"
-                        429 -> false to "请求过于频繁，请稍后再试"
-                        else -> false to "连接失败: ${response.code}"
-                    }
-                }
-            } catch (e: Exception) {
-                false to "连接异常: ${e.message}"
-            }
-        }
-    }
-
     suspend fun searchLocation(context: Context, cityName: String): List<CityLocation> {
         if (cityName.trim().isEmpty()) {
             throw Exception("请输入城市名称")
         }
 
-        val host = getApiHost(context)
-        val key = getApiKey(context)
-        val url = "https://$host/geo/v2/city/lookup?location=$cityName&key=$key"
+        val url = toBackendUrl(
+            path = "/api/geo/lookup",
+            queryParams = mapOf("location" to cityName.trim())
+        )
         return executeGeoRequest(url)
     }
 
     suspend fun getCityByCoordinates(context: Context, longitude: Double, latitude: Double): CityLocation? {
-        // Format: longitude,latitude (e.g. 116.41,39.92)
-        // Keep 2 decimal places as in v1
         val locationParam = String.format("%.2f,%.2f", longitude, latitude)
-        val host = getApiHost(context)
-        val key = getApiKey(context)
-        val url = "https://$host/geo/v2/city/lookup?location=$locationParam&key=$key"
+        val url = toBackendUrl(
+            path = "/api/geo/lookup",
+            queryParams = mapOf("location" to locationParam)
+        )
         
         val locations = executeGeoRequest(url)
         return locations.firstOrNull()
@@ -119,8 +58,6 @@ object WeatherService {
         return withContext(Dispatchers.IO) {
             val request = Request.Builder()
                 .url(url)
-                .header("X-Android-Package-Name", ANDROID_PACKAGE_NAME)
-                .header("X-Android-Cert", ANDROID_CERT_SHA1)
                 .build()
 
             client.newCall(request).execute().use { response ->
@@ -142,16 +79,28 @@ object WeatherService {
         }
     }
 
-    suspend fun fetchDailyWeather(context: Context, locationId: String, days: String, cityName: String): String {
-        val host = getApiHost(context)
-        val key = getApiKey(context)
-        val url = "https://$host/v7/weather/$days?location=$locationId&key=$key"
-        
+    suspend fun fetchWeatherData(
+        context: Context,
+        locationId: String,
+        days: String,
+        cityName: String,
+        syncHourly: Boolean,
+    ): String {
+        val payload = JsonObject().apply {
+            addProperty("locationId", locationId)
+            addProperty("source", "app")
+            add("modules", JsonObject().apply {
+                addProperty("daily", days)
+                if (syncHourly) {
+                    addProperty("hourly", "72h")
+                }
+            })
+        }
+
         return withContext(Dispatchers.IO) {
             val request = Request.Builder()
-                .url(url)
-                .header("X-Android-Package-Name", ANDROID_PACKAGE_NAME)
-                .header("X-Android-Cert", ANDROID_CERT_SHA1)
+                .url(toBackendUrl("/api/weather/sync"))
+                .post(gson.toJson(payload).toRequestBody(jsonMediaType))
                 .build()
 
             client.newCall(request).execute().use { response ->
@@ -200,6 +149,18 @@ object WeatherService {
         
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString(KEY_RECENT_SEARCHES, gson.toJson(currentList)).apply()
+    }
+
+    private fun toBackendUrl(
+        path: String,
+        queryParams: Map<String, String> = emptyMap(),
+    ): String {
+        val builder = backendBaseUrl.toHttpUrl().newBuilder()
+        builder.encodedPath("/${path.trimStart('/')}")
+        queryParams.forEach { (key, value) ->
+            builder.addQueryParameter(key, value)
+        }
+        return builder.build().toString()
     }
 }
 

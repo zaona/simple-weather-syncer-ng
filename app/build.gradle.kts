@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -20,6 +21,22 @@ android {
         targetSdk = 36
         versionCode = 14
         versionName = "2.1.0"
+
+        val backendBaseUrl = run {
+            val weatherLocalProps = Properties()
+            val weatherLocalPropsFile = rootProject.file("weather.local.properties")
+            if (!weatherLocalPropsFile.exists()) {
+                throw GradleException("Missing weather.local.properties. Please create it and set weatherBackendBaseUrl.")
+            }
+            weatherLocalProps.load(FileInputStream(weatherLocalPropsFile))
+            val raw = weatherLocalProps.getProperty("weatherBackendBaseUrl", "").trim()
+            when {
+                raw.isEmpty() -> throw GradleException("weatherBackendBaseUrl is empty in weather.local.properties.")
+                raw.startsWith("http://") || raw.startsWith("https://") -> raw
+                else -> "https://$raw"
+            }
+        }
+        buildConfigField("String", "WEATHER_BACKEND_BASE_URL", "\"$backendBaseUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -55,6 +72,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     splits {
         abi {
