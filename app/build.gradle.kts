@@ -29,12 +29,8 @@ android {
                 throw GradleException("Missing weather.local.properties. Please create it and set weatherBackendBaseUrl.")
             }
             weatherLocalProps.load(FileInputStream(weatherLocalPropsFile))
-            val raw = weatherLocalProps.getProperty("weatherBackendBaseUrl", "").trim()
-            when {
-                raw.isEmpty() -> throw GradleException("weatherBackendBaseUrl is empty in weather.local.properties.")
-                raw.startsWith("http://") || raw.startsWith("https://") -> raw
-                else -> "https://$raw"
-            }
+            weatherLocalProps.getProperty("weatherBackendBaseUrl", "").trim()
+                .ifEmpty { throw GradleException("weatherBackendBaseUrl is empty in weather.local.properties.") }
         }
         buildConfigField("String", "WEATHER_BACKEND_BASE_URL", "\"$backendBaseUrl\"")
 
