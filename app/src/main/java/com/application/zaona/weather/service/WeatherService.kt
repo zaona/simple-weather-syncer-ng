@@ -92,7 +92,7 @@ object WeatherService {
             add("modules", JsonObject().apply {
                 addProperty("daily", days)
                 if (syncHourly) {
-                    addProperty("hourly", "72h")
+                    addProperty("hourly", "168h")
                 }
             })
         }

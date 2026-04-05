@@ -332,7 +332,7 @@ class MainActivity : ComponentActivity() {
                                         )
                                         SuperSwitch(
                                             title = "同步逐小时天气数据",
-                                            summary = "开启后同步最近72小时逐小时天气",
+                                            summary = "开启后同步最近一周逐小时天气",
                                             checked = syncHourlyWeather,
                                             onCheckedChange = {
                                                 syncHourlyWeather = it
