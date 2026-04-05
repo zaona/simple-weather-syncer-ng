@@ -19,6 +19,8 @@ import kotlinx.coroutines.withContext
 
 object WeatherService {
     private val backendBaseUrl = BuildConfig.WEATHER_BACKEND_BASE_URL.trimEnd('/')
+    private val clientType = BuildConfig.WEATHER_CLIENT_TYPE
+    private val apiKey = BuildConfig.WEATHER_API_KEY
     private const val PREFS_NAME = "weather_prefs"
     private const val KEY_RECENT_SEARCHES = "weather_recent_searches"
     private const val MAX_RECENT_SEARCHES = 10
@@ -58,6 +60,7 @@ object WeatherService {
         return withContext(Dispatchers.IO) {
             val request = Request.Builder()
                 .url(url)
+                .applyAuthHeaders()
                 .build()
 
             client.newCall(request).execute().use { response ->
@@ -88,7 +91,7 @@ object WeatherService {
     ): String {
         val payload = JsonObject().apply {
             addProperty("locationId", locationId)
-            addProperty("source", "app")
+            addProperty("source", clientType)
             add("modules", JsonObject().apply {
                 addProperty("daily", days)
                 if (syncHourly) {
@@ -100,6 +103,7 @@ object WeatherService {
         return withContext(Dispatchers.IO) {
             val request = Request.Builder()
                 .url(toBackendUrl("/api/weather/sync"))
+                .applyAuthHeaders()
                 .post(gson.toJson(payload).toRequestBody(jsonMediaType))
                 .build()
 
@@ -161,6 +165,11 @@ object WeatherService {
             builder.addQueryParameter(key, value)
         }
         return builder.build().toString()
+    }
+
+    private fun Request.Builder.applyAuthHeaders(): Request.Builder {
+        return header("X-Client-Type", clientType)
+            .header("X-API-Key", apiKey)
     }
 }
 

@@ -22,17 +22,22 @@ android {
         versionCode = 14
         versionName = "2.1.0"
 
-        val backendBaseUrl = run {
-            val weatherLocalProps = Properties()
+        val weatherLocalProps = Properties().apply {
             val weatherLocalPropsFile = rootProject.file("weather.local.properties")
             if (!weatherLocalPropsFile.exists()) {
-                throw GradleException("Missing weather.local.properties. Please create it and set weatherBackendBaseUrl.")
+                throw GradleException("Missing weather.local.properties. Please create it and set weatherBackendBaseUrl/weatherClientType/weatherApiKey.")
             }
-            weatherLocalProps.load(FileInputStream(weatherLocalPropsFile))
-            weatherLocalProps.getProperty("weatherBackendBaseUrl", "").trim()
-                .ifEmpty { throw GradleException("weatherBackendBaseUrl is empty in weather.local.properties.") }
+            load(FileInputStream(weatherLocalPropsFile))
         }
+        val backendBaseUrl = weatherLocalProps.getProperty("weatherBackendBaseUrl", "").trim()
+            .ifEmpty { throw GradleException("weatherBackendBaseUrl is empty in weather.local.properties.") }
+        val weatherClientType = weatherLocalProps.getProperty("weatherClientType", "").trim()
+            .ifEmpty { throw GradleException("weatherClientType is empty in weather.local.properties.") }
+        val weatherApiKey = weatherLocalProps.getProperty("weatherApiKey", "").trim()
+            .ifEmpty { throw GradleException("weatherApiKey is empty in weather.local.properties.") }
         buildConfigField("String", "WEATHER_BACKEND_BASE_URL", "\"$backendBaseUrl\"")
+        buildConfigField("String", "WEATHER_CLIENT_TYPE", "\"$weatherClientType\"")
+        buildConfigField("String", "WEATHER_API_KEY", "\"$weatherApiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
