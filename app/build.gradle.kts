@@ -19,8 +19,8 @@ android {
         applicationId = "com.application.zaona.weather"
         minSdk = 24
         targetSdk = 36
-        versionCode = 14
-        versionName = "2.1.0"
+        versionCode = 15
+        versionName = "2.1.1"
 
         val weatherLocalProps = Properties().apply {
             val weatherLocalPropsFile = rootProject.file("weather.local.properties")
@@ -118,10 +118,6 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation("com.microsoft.clarity:clarity-compose:3.+")
     implementation(libs.miuix.android)
-    implementation(platform(libs.supabase.bom))
-    implementation(libs.supabase.postgrest)
-    implementation(libs.supabase.auth)
-    implementation(libs.multiplatform.settings)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
     implementation(libs.miuix.icons.android)

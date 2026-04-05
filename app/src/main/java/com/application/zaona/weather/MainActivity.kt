@@ -97,14 +97,14 @@ import com.microsoft.clarity.ClarityConfig
 import com.microsoft.clarity.models.LogLevel
 import androidx.lifecycle.lifecycleScope
 
-import com.application.zaona.weather.service.SupabaseService
+import com.application.zaona.weather.service.DeviceReportService
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Initialize Supabase Service
-        SupabaseService.init(applicationContext)
+        // Initialize device reporting service
+        DeviceReportService.init(applicationContext)
         
         val config = ClarityConfig(
             projectId = "v9ht6u2tnu",
@@ -227,9 +227,9 @@ class MainActivity : ComponentActivity() {
                                             deviceName = nodes[0].name
                                             nodeId = nodes[0].id
                                             
-                                            // Report device name to Supabase
+                                            // Report device name to backend API
                                             scope.launch {
-                                                SupabaseService.reportDeviceName(deviceName)
+                                                DeviceReportService.reportDeviceName(deviceName)
                                             }
 
                                             checkAndRequestPermissions(nodeId)
