@@ -268,7 +268,9 @@ class LocationPickerActivity : ComponentActivity() {
                             item {
                                 SmallTitle(text = "当前位置")
                                 Card(
-                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp)
+                                        .padding(bottom = 12.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.CenterEnd) {
                                         BasicComponent(
@@ -326,7 +328,9 @@ class LocationPickerActivity : ComponentActivity() {
                                 item {
                                     SmallTitle(text = "位置历史")
                                     Card(
-                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                        modifier = Modifier
+                                            .padding(horizontal = 16.dp)
+                                            .padding(bottom = 12.dp)
                                     ) {
                                         searchHistory.forEach { history ->
                                             BasicComponent(

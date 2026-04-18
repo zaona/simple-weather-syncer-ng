@@ -145,7 +145,9 @@ class SettingsActivity : ComponentActivity() {
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Card(
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 12.dp)
                             ) {
                                 val themeModeOptions = listOf("跟随系统", "浅色", "深色")
                                 SwitchPreference(
@@ -212,11 +214,11 @@ class SettingsActivity : ComponentActivity() {
                             }
 
                             item {
-                            Spacer(modifier = Modifier.height(16.dp))
-
                             SmallTitle(text = "更多内容")
                             Card(
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 12.dp)
                             ) {
                                 ArrowPreference(
                                     title = "帮助文档",
@@ -237,11 +239,11 @@ class SettingsActivity : ComponentActivity() {
                             }
 
                             item {
-                            Spacer(modifier = Modifier.height(16.dp))
-
                             SmallTitle(text = "特别鸣谢")
                             Card(
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 12.dp)
                             ) {
                                 ArrowPreference(
                                     title = "赞助者",
