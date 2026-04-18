@@ -373,8 +373,8 @@ class MainActivity : ComponentActivity() {
                                             modifier = Modifier.padding(16.dp)
                                         ) {
                                             ArrowPreference(
-                                                title = "连接设备",
-                                                summary = if (isConnected && deviceName.isNotBlank()) deviceName else "未连接设备",
+                                                title = if (isConnected) "已连接设备" else "未连接设备",
+                                                summary = if (isConnected && deviceName.isNotBlank()) deviceName else "点击重试",
                                                 onClick = {
                                                     checkConnection()
                                                     showDeviceActionDialog.value = true
