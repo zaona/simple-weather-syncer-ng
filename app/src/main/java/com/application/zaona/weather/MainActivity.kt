@@ -143,6 +143,7 @@ class MainActivity : ComponentActivity() {
                 var watchUpdateDialogSummary by remember { mutableStateOf("") }
                 var watchUpdateDownloadUrl by remember { mutableStateOf<String?>(null) }
                 var watchIsForceUpdate by remember { mutableStateOf(false) }
+                val showDeviceActionDialog = remember { mutableStateOf(false) }
                 val showDialog = remember { mutableStateOf(false) }
                 var dialogTitle by remember { mutableStateOf("") }
                 var dialogSummary by remember { mutableStateOf("") }
@@ -259,6 +260,59 @@ class MainActivity : ComponentActivity() {
                                         isConnected = false
                                     }
                                 }
+
+                                fun checkWatchUpdate() {
+                                    showDeviceActionDialog.value = false
+
+                                    if (!isConnected || nodeId.isEmpty()) {
+                                        dialogTitle = "提示"
+                                        dialogSummary = "请先连接设备"
+                                        showDialog.value = true
+                                        return
+                                    }
+
+                                    scope.launch {
+                                        try {
+                                            dialogTitle = "正在检查"
+                                            dialogSummary = "正在检查手表应用安装状态..."
+                                            showDialog.value = true
+
+                                            val isInstalled = checkWatchAppInstalled(nodeApi, nodeId)
+                                            if (!isInstalled) {
+                                                dialogTitle = "提示"
+                                                dialogSummary = "手表端未安装应用，请先安装"
+                                                showDialog.value = true
+                                                return@launch
+                                            }
+
+                                            dialogSummary = "正在启动应用并握手..."
+                                            performWatchHandshake(nodeApi, messageApi, nodeId)
+
+                                            delay(160)
+
+                                            dialogSummary = "正在获取手表端版本信息..."
+                                            val watchInfo = requestWatchInfo(messageApi, nodeId)
+                                            val quickApp = UpdateService.fetchQuickAppUpdateInfo()
+                                            val hasUpdate = isVersionNewer(quickApp.versionName, watchInfo.versionName)
+
+                                            if (hasUpdate) {
+                                                watchUpdateDialogTitle = "发现新版本：${quickApp.versionName}"
+                                                watchUpdateDialogSummary = quickApp.updateDescription
+                                                watchUpdateDownloadUrl = quickApp.downloadUrl.takeIf { it.isNotBlank() }
+                                                watchIsForceUpdate = quickApp.forceUpdate
+                                                showWatchUpdateDialog.value = true
+                                            } else {
+                                                dialogTitle = "手表端已是最新"
+                                                dialogSummary = "当前版本：${watchInfo.versionName}"
+                                                showDialog.value = true
+                                            }
+                                        } catch (e: Exception) {
+                                            dialogTitle = "检查失败"
+                                            dialogSummary = e.message ?: "未知错误"
+                                            showDialog.value = true
+                                        }
+                                    }
+                                }
                                 
                                 LaunchedEffect(Unit) {
                                     checkConnection()
@@ -317,87 +371,18 @@ class MainActivity : ComponentActivity() {
                                         .nestedScroll(scrollBehavior.nestedScrollConnection)
                                 ) {
                                     item {
-                                    Card(
-                                        modifier = Modifier.padding(16.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically
+                                        Card(
+                                            modifier = Modifier.padding(16.dp)
                                         ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                            ) {
-                                                BasicComponent(
-                                                    title = if (isConnected) "已连接设备" else "未连接设备",
-                                                    summary = if (isConnected) deviceName else "点击重试",
-                                                    onClick = { checkConnection() }
-                                                )
-                                            }
-
-                                            IconButton(
+                                            SuperArrow(
+                                                title = "连接设备",
+                                                summary = if (isConnected && deviceName.isNotBlank()) deviceName else "未连接设备",
                                                 onClick = {
-                                                    if (!isConnected || nodeId.isEmpty()) {
-                                                        dialogTitle = "提示"
-                                                        dialogSummary = "请先连接设备"
-                                                        showDialog.value = true
-                                                        return@IconButton
-                                                    }
-
-                                                    scope.launch {
-                                                        try {
-                                                            dialogTitle = "正在检查"
-                                                            dialogSummary = "正在检查手表应用安装状态..."
-                                                            showDialog.value = true
-
-                                                            val isInstalled = checkWatchAppInstalled(nodeApi, nodeId)
-                                                            if (!isInstalled) {
-                                                                dialogTitle = "提示"
-                                                                dialogSummary = "手表端未安装应用，请先安装"
-                                                                showDialog.value = true
-                                                                return@launch
-                                                            }
-
-                                                            dialogSummary = "正在启动应用并握手..."
-                                                            performWatchHandshake(nodeApi, messageApi, nodeId)
-
-                                                            delay(160)
-
-                                                            dialogSummary = "正在获取手表端版本信息..."
-                                                            val watchInfo = requestWatchInfo(messageApi, nodeId)
-                                                            val quickApp = UpdateService.fetchQuickAppUpdateInfo()
-                                                            val hasUpdate = isVersionNewer(quickApp.versionName, watchInfo.versionName)
-
-                                                            if (hasUpdate) {
-                                                                watchUpdateDialogTitle = "发现新版本：${quickApp.versionName}"
-                                                                watchUpdateDialogSummary = quickApp.updateDescription
-                                                                watchUpdateDownloadUrl = quickApp.downloadUrl.takeIf { it.isNotBlank() }
-                                                                watchIsForceUpdate = quickApp.forceUpdate
-                                                                showWatchUpdateDialog.value = true
-                                                            } else {
-                                                                dialogTitle = "手表端已是最新"
-                                                                dialogSummary = "当前版本：${watchInfo.versionName}"
-                                                                showDialog.value = true
-                                                            }
-                                                        } catch (e: Exception) {
-                                                            dialogTitle = "检查失败"
-                                                            dialogSummary = e.message ?: "未知错误"
-                                                            showDialog.value = true
-                                                        }
-                                                    }
-                                                },
-                                                modifier = Modifier
-                                                    .padding(end = 8.dp)
-                                                    .size(40.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = MiuixIcons.Update,
-                                                    contentDescription = "检查手表更新"
-                                                )
-                                            }
+                                                    checkConnection()
+                                                    showDeviceActionDialog.value = true
+                                                }
+                                            )
                                         }
-                                    }
                                     
                                     Card(
                                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -581,6 +566,25 @@ class MainActivity : ComponentActivity() {
                                             onClick = { showDialog.value = false },
                                             modifier = Modifier.fillMaxWidth()
                                         )
+                                    }
+
+                                    WindowDialog(
+                                        title = "连接设备",
+                                        summary = if (isConnected && deviceName.isNotBlank()) {
+                                            "当前设备：$deviceName"
+                                        } else {
+                                            "当前未连接设备"
+                                        },
+                                        show = showDeviceActionDialog,
+                                        onDismissRequest = { showDeviceActionDialog.value = false }
+                                    ) {
+                                        Button(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            onClick = { checkWatchUpdate() },
+                                            colors = ButtonDefaults.buttonColorsPrimary()
+                                        ) {
+                                            Text("检查手表端更新", color = Color.White)
+                                        }
                                     }
                                     }
                                 }
