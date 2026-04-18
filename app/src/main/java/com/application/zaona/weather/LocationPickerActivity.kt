@@ -50,7 +50,6 @@ import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.extra.SuperDialog
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -62,6 +61,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.union
 import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 class LocationPickerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,10 +94,10 @@ class LocationPickerActivity : ComponentActivity() {
                     searchHistory.addAll(WeatherService.loadRecentSearches(context))
                 }
                 
-                SuperDialog(
+                WindowDialog(
                     title = dialogTitle,
                     summary = dialogSummary,
-                    show = showDialog,
+                    show = showDialog.value,
                     onDismissRequest = { showDialog.value = false }
                 ) {
                      TextButton(
@@ -160,7 +160,6 @@ class LocationPickerActivity : ComponentActivity() {
                             title = "位置设置",
                             navigationIcon = {
                                 IconButton(
-                                    modifier = Modifier.padding(start = 16.dp),
                                     onClick = { finish() }
                                 ) {
                                     Icon(

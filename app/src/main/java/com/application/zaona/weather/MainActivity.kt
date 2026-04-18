@@ -57,10 +57,6 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
-import top.yukonga.miuix.kmp.extra.SuperArrow
-import top.yukonga.miuix.kmp.extra.SuperBottomSheet
-import top.yukonga.miuix.kmp.extra.SuperDialog
-import top.yukonga.miuix.kmp.extra.WindowDialog
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.TextField
@@ -77,14 +73,17 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.union
-import top.yukonga.miuix.kmp.extra.SuperDropdown
-import top.yukonga.miuix.kmp.extra.SuperSwitch
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.Update
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
 import com.xiaomi.xms.wearable.message.MessageApi
@@ -177,7 +176,6 @@ class MainActivity : ComponentActivity() {
                             scrollBehavior = scrollBehavior,
                             actions = {
                                 IconButton(
-                                    modifier = Modifier.padding(end = 8.dp),
                                     onClick = {
                                         val intent = Intent(context, SponsorActivity::class.java)
                                         context.startActivity(intent)
@@ -188,8 +186,8 @@ class MainActivity : ComponentActivity() {
                                         contentDescription = "赞助"
                                     )
                                 }
+                                Spacer(modifier = Modifier.width(8.dp))
                                 IconButton(
-                                    modifier = Modifier.padding(end = 16.dp),
                                     onClick = {
                                         val intent = Intent(context, SettingsActivity::class.java)
                                         context.startActivity(intent)
@@ -374,7 +372,7 @@ class MainActivity : ComponentActivity() {
                                         Card(
                                             modifier = Modifier.padding(16.dp)
                                         ) {
-                                            SuperArrow(
+                                            ArrowPreference(
                                                 title = "连接设备",
                                                 summary = if (isConnected && deviceName.isNotBlank()) deviceName else "未连接设备",
                                                 onClick = {
@@ -387,14 +385,14 @@ class MainActivity : ComponentActivity() {
                                     Card(
                                         modifier = Modifier.padding(horizontal = 16.dp)
                                     ) {
-                                        SuperArrow(
+                                        ArrowPreference(
                                             title = "位置设置",
                                             summary = currentLocation,
                                             onClick = {
                                                 locationPickerLauncher.launch(Intent(context, LocationPickerActivity::class.java))
                                             }
                                         )
-                                        SuperDropdown(
+                                        OverlayDropdownPreference(
                                             title = "同步天气天数",
                                             items = syncDaysOptions,
                                             selectedIndex = selectedSyncDaysIndex,
@@ -404,7 +402,7 @@ class MainActivity : ComponentActivity() {
                                                 prefs.edit().putInt("sync_days_index", it).apply()
                                             }
                                         )
-                                        SuperSwitch(
+                                        SwitchPreference(
                                             title = "同步逐小时天气数据",
                                             summary = "开启后同步最近一周逐小时天气",
                                             checked = syncHourlyWeather,
@@ -551,14 +549,14 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColorsPrimary()
-                                    ) {
-                                        Text("同步数据", color = Color.White)
-                                    }
+                                        ) {
+                                            Text("同步数据", color = Color.White)
+                                        }
 
-                                    SuperDialog(
+                                    OverlayDialog(
                                         title = dialogTitle,
                                         summary = dialogSummary,
-                                        show = showDialog,
+                                        show = showDialog.value,
                                         onDismissRequest = { showDialog.value = false }
                                     ) {
                                         TextButton(
@@ -575,7 +573,7 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             "当前未连接设备"
                                         },
-                                        show = showDeviceActionDialog,
+                                        show = showDeviceActionDialog.value,
                                         onDismissRequest = { showDeviceActionDialog.value = false }
                                     ) {
                                         Button(
@@ -594,7 +592,7 @@ class MainActivity : ComponentActivity() {
                 WindowDialog(
                     title = "天气数据预览",
                     summary = "可预览后复制到剪贴板",
-                    show = showWeatherDataDialog,
+                    show = showWeatherDataDialog.value,
                     onDismissRequest = { showWeatherDataDialog.value = false }
                 ) {
                     Column(
@@ -641,7 +639,7 @@ class MainActivity : ComponentActivity() {
                 WindowDialog(
                     title = updateDialogTitle,
                     summary = updateDialogSummary,
-                    show = showUpdateDialog,
+                    show = showUpdateDialog.value,
                     onDismissRequest = {
                         if (!isForceUpdate) {
                             showUpdateDialog.value = false
@@ -688,7 +686,7 @@ class MainActivity : ComponentActivity() {
                 WindowDialog(
                     title = watchUpdateDialogTitle,
                     summary = watchUpdateDialogSummary,
-                    show = showWatchUpdateDialog,
+                    show = showWatchUpdateDialog.value,
                     onDismissRequest = {
                         if (!watchIsForceUpdate) {
                             showWatchUpdateDialog.value = false

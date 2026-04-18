@@ -55,14 +55,14 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
-import top.yukonga.miuix.kmp.extra.SuperArrow
-import top.yukonga.miuix.kmp.extra.SuperDropdown
-import top.yukonga.miuix.kmp.extra.SuperSwitch
-import top.yukonga.miuix.kmp.extra.WindowDialog
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,7 +110,6 @@ class SettingsActivity : ComponentActivity() {
                             title = "设置",
                             navigationIcon = {
                                 IconButton(
-                                    modifier = Modifier.padding(start = 16.dp),
                                     onClick = { finish() }
                                 ) {
                                     Icon(
@@ -149,7 +148,7 @@ class SettingsActivity : ComponentActivity() {
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             ) {
                                 val themeModeOptions = listOf("跟随系统", "浅色", "深色")
-                                SuperSwitch(
+                                SwitchPreference(
                                     title = "高级同步模式",
                                     summary = "启用后先启动应用并握手",
                                     checked = advancedSyncMode,
@@ -159,7 +158,7 @@ class SettingsActivity : ComponentActivity() {
                                         prefs.edit().putBoolean("advanced_sync_mode", it).apply()
                                     }
                                 )
-                                SuperDropdown(
+                                OverlayDropdownPreference(
                                     title = "主题模式",
                                     items = themeModeOptions,
                                     selectedIndex = themeModeIndex,
@@ -174,7 +173,7 @@ class SettingsActivity : ComponentActivity() {
                                         prefs.edit().putString("theme_mode", modeValue).apply()
                                     }
                                 )
-                                SuperArrow(
+                                ArrowPreference(
                                     title = "检查更新",
                                     summary = currentVersion,
                                     onClick = { 
@@ -219,14 +218,14 @@ class SettingsActivity : ComponentActivity() {
                             Card(
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             ) {
-                                SuperArrow(
+                                ArrowPreference(
                                     title = "帮助文档",
                                     onClick = {
                                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.yuque.com/zaona/weather"))
                                         context.startActivity(intent)
                                     }
                                 )
-                                SuperArrow(
+                                ArrowPreference(
                                     title = "QQ交流群",
                                     summary = "947038648",
                                     onClick = {
@@ -244,7 +243,7 @@ class SettingsActivity : ComponentActivity() {
                             Card(
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             ) {
-                                SuperArrow(
+                                ArrowPreference(
                                     title = "赞助者",
                                     onClick = {
                                         val intent = Intent(context, SponsorActivity::class.java)
@@ -271,7 +270,7 @@ class SettingsActivity : ComponentActivity() {
 
                 WindowDialog(
                     title = "正在检查更新",
-                    show = showCheckingDialog,
+                    show = showCheckingDialog.value,
                     onDismissRequest = { }
                 ) {
                     Box(
@@ -289,7 +288,7 @@ class SettingsActivity : ComponentActivity() {
                 WindowDialog(
                     title = updateDialogTitle,
                     summary = updateDialogSummary,
-                    show = showUpdateDialog,
+                    show = showUpdateDialog.value,
                     onDismissRequest = {
                         if (!isForceUpdate) {
                             showUpdateDialog.value = false

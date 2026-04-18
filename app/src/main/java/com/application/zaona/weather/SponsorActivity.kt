@@ -106,7 +106,6 @@ class SponsorActivity : ComponentActivity() {
                             title = "赞助者鸣谢",
                             navigationIcon = {
                                 IconButton(
-                                    modifier = Modifier.padding(start = 12.dp),
                                     onClick = { finish() }
                                 ) {
                                     Icon(

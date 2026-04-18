@@ -4,7 +4,6 @@ import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -12,7 +11,7 @@ plugins {
 android {
     namespace = "com.application.zaona.weather"
     compileSdk {
-        version = release(36)
+        version = release(37)
     }
 
     defaultConfig {
@@ -117,10 +116,11 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("com.microsoft.clarity:clarity-compose:3.+")
-    implementation(libs.miuix.android)
+    implementation(libs.miuix.ui.android)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
     implementation(libs.miuix.icons.android)
+    implementation(libs.miuix.preference.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
