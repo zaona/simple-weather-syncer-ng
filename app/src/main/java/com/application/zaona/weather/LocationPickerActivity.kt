@@ -47,12 +47,13 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.icon.extended.Search
+import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -206,10 +207,12 @@ class LocationPickerActivity : ComponentActivity() {
                                         label = "搜索",
                                         leadingIcon = {
                                             Icon(
-                                                modifier = Modifier.padding(start = 12.dp, end = 8.dp),
-                                                imageVector = MiuixIcons.Search,
+                                                imageVector = MiuixIcons.Basic.Search,
                                                 contentDescription = "搜索",
-                                                tint = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                                modifier = Modifier
+                                                    .size(44.dp)
+                                                    .padding(start = 16.dp, end = 8.dp),
+                                                tint = MiuixTheme.colorScheme.onSurfaceContainerHigh,
                                             )
                                         }
                                     )
