@@ -3,6 +3,7 @@ package com.application.zaona.weather.service
 import android.content.Context
 import android.os.Build
 import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -24,6 +25,23 @@ object UpdateService {
         val updateDescription: String,
         val downloadUrl: String,
         val forceUpdate: Boolean = true
+    )
+
+    data class QuickAppUpdateInfo(
+        @SerializedName("versionName")
+        val versionName: String,
+        val updateDescription: String = "",
+        val downloadUrl: String = "",
+        val forceUpdate: Boolean = false
+    )
+
+    private data class UpdateConfig(
+        val versionCode: Int,
+        val versionName: String,
+        val updateDescription: String,
+        val downloadUrl: String,
+        val forceUpdate: Boolean = true,
+        val quickapp: QuickAppUpdateInfo? = null
     )
     
     data class UpdateCheckResult(
@@ -78,7 +96,14 @@ object UpdateService {
                         errorMessage = "空响应"
                     )
                     
-                    val info = gson.fromJson(body, AppUpdateInfo::class.java)
+                    val config = gson.fromJson(body, UpdateConfig::class.java)
+                    val info = AppUpdateInfo(
+                        versionCode = config.versionCode,
+                        versionName = config.versionName,
+                        updateDescription = config.updateDescription,
+                        downloadUrl = config.downloadUrl,
+                        forceUpdate = config.forceUpdate
+                    )
                     return@withContext if (info.versionCode > baseCode) {
                         UpdateCheckResult(
                             checkFailed = false,
@@ -98,6 +123,26 @@ object UpdateService {
                     hasUpdate = false,
                     errorMessage = e.message ?: "检查更新失败"
                 )
+            }
+        }
+    }
+
+    suspend fun fetchQuickAppUpdateInfo(): QuickAppUpdateInfo {
+        return withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(UPDATE_CONFIG_URL)
+                .header("Accept", "application/json")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IllegalStateException("服务器返回错误: ${response.code}")
+                }
+
+                val body = response.body?.string() ?: throw IllegalStateException("空响应")
+                val config = gson.fromJson(body, UpdateConfig::class.java)
+                return@use config.quickapp
+                    ?: throw IllegalStateException("更新配置缺少 quickapp 字段")
             }
         }
     }

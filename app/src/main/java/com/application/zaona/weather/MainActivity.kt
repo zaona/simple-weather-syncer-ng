@@ -13,6 +13,7 @@ import com.application.zaona.weather.model.CityLocation
 import com.application.zaona.weather.service.UpdateService
 import com.application.zaona.weather.service.WeatherService
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -82,14 +83,18 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Favorites
+import top.yukonga.miuix.kmp.icon.extended.Update
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
+import com.xiaomi.xms.wearable.message.MessageApi
 import com.xiaomi.xms.wearable.node.NodeApi
 import com.xiaomi.xms.wearable.auth.AuthApi
 import com.xiaomi.xms.wearable.auth.Permission
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import com.microsoft.clarity.Clarity
@@ -100,6 +105,13 @@ import androidx.lifecycle.lifecycleScope
 import com.application.zaona.weather.service.DeviceReportService
 
 class MainActivity : ComponentActivity() {
+    private data class WatchInfoPayload(
+        val action: String,
+        val versionName: String,
+        val deviceId: String,
+        val timestamp: Long?
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -126,6 +138,11 @@ class MainActivity : ComponentActivity() {
                 var updateDialogSummary by remember { mutableStateOf("") }
                 var updateDownloadUrl by remember { mutableStateOf<String?>(null) }
                 var isForceUpdate by remember { mutableStateOf(false) }
+                val showWatchUpdateDialog = remember { mutableStateOf(false) }
+                var watchUpdateDialogTitle by remember { mutableStateOf("") }
+                var watchUpdateDialogSummary by remember { mutableStateOf("") }
+                var watchUpdateDownloadUrl by remember { mutableStateOf<String?>(null) }
+                var watchIsForceUpdate by remember { mutableStateOf(false) }
                 val showDialog = remember { mutableStateOf(false) }
                 var dialogTitle by remember { mutableStateOf("") }
                 var dialogSummary by remember { mutableStateOf("") }
@@ -303,11 +320,83 @@ class MainActivity : ComponentActivity() {
                                     Card(
                                         modifier = Modifier.padding(16.dp)
                                     ) {
-                                        BasicComponent(
-                                            title = if (isConnected) "已连接设备" else "未连接设备",
-                                            summary = if (isConnected) deviceName else "点击重试",
-                                            onClick = { checkConnection() }
-                                        )
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                            ) {
+                                                BasicComponent(
+                                                    title = if (isConnected) "已连接设备" else "未连接设备",
+                                                    summary = if (isConnected) deviceName else "点击重试",
+                                                    onClick = { checkConnection() }
+                                                )
+                                            }
+
+                                            IconButton(
+                                                onClick = {
+                                                    if (!isConnected || nodeId.isEmpty()) {
+                                                        dialogTitle = "提示"
+                                                        dialogSummary = "请先连接设备"
+                                                        showDialog.value = true
+                                                        return@IconButton
+                                                    }
+
+                                                    scope.launch {
+                                                        try {
+                                                            dialogTitle = "正在检查"
+                                                            dialogSummary = "正在检查手表应用安装状态..."
+                                                            showDialog.value = true
+
+                                                            val isInstalled = checkWatchAppInstalled(nodeApi, nodeId)
+                                                            if (!isInstalled) {
+                                                                dialogTitle = "提示"
+                                                                dialogSummary = "手表端未安装应用，请先安装"
+                                                                showDialog.value = true
+                                                                return@launch
+                                                            }
+
+                                                            dialogSummary = "正在启动应用并握手..."
+                                                            performWatchHandshake(nodeApi, messageApi, nodeId)
+
+                                                            delay(160)
+
+                                                            dialogSummary = "正在获取手表端版本信息..."
+                                                            val watchInfo = requestWatchInfo(messageApi, nodeId)
+                                                            val quickApp = UpdateService.fetchQuickAppUpdateInfo()
+                                                            val hasUpdate = isVersionNewer(quickApp.versionName, watchInfo.versionName)
+
+                                                            if (hasUpdate) {
+                                                                watchUpdateDialogTitle = "发现新版本：${quickApp.versionName}"
+                                                                watchUpdateDialogSummary = quickApp.updateDescription
+                                                                watchUpdateDownloadUrl = quickApp.downloadUrl.takeIf { it.isNotBlank() }
+                                                                watchIsForceUpdate = quickApp.forceUpdate
+                                                                showWatchUpdateDialog.value = true
+                                                            } else {
+                                                                dialogTitle = "手表端已是最新"
+                                                                dialogSummary = "当前版本：${watchInfo.versionName}"
+                                                                showDialog.value = true
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            dialogTitle = "检查失败"
+                                                            dialogSummary = e.message ?: "未知错误"
+                                                            showDialog.value = true
+                                                        }
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .padding(end = 8.dp)
+                                                    .size(40.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = MiuixIcons.Update,
+                                                    contentDescription = "检查手表更新"
+                                                )
+                                            }
+                                        }
                                     }
                                     
                                     Card(
@@ -452,40 +541,7 @@ class MainActivity : ComponentActivity() {
 
                                                     if (advancedSyncMode) {
                                                         dialogSummary = "正在启动应用并握手..."
-                                                        
-                                                        var isReady = false
-                                                        val listener = OnMessageReceivedListener { _, message ->
-                                                            if (String(message).contains("ready")) {
-                                                                isReady = true
-                                                            }
-                                                        }
-                                                        
-                                                        try {
-                                                            // Register listener
-                                                            messageApi.addListener(nodeId, listener)
-                                                            
-                                                            // Launch app
-                                                            nodeApi.launchWearApp(nodeId, "/home")
-                                                            
-                                                            // Handshake loop
-                                                            var attempts = 0
-                                                            while (attempts < 15 && !isReady) {
-                                                                attempts++
-                                                                messageApi.sendMessage(nodeId, "start".toByteArray())
-                                                                
-                                                                // Check frequently within the 600ms interval (50ms * 12 = 600ms)
-                                                                for (i in 0 until 12) {
-                                                                    delay(50)
-                                                                    if (isReady) break
-                                                                }
-                                                            }
-                                                        } finally {
-                                                            messageApi.removeListener(nodeId)
-                                                        }
-                                                        
-                                                        if (!isReady) {
-                                                            throw Exception("握手失败：设备未响应")
-                                                        }
+                                                        performWatchHandshake(nodeApi, messageApi, nodeId)
                                                     }
 
                                                     dialogSummary = "正在发送数据到设备..."
@@ -513,7 +569,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         Text("同步数据", color = Color.White)
                                     }
-                                    
+
                                     SuperDialog(
                                         title = dialogTitle,
                                         summary = dialogSummary,
@@ -624,6 +680,53 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+
+                WindowDialog(
+                    title = watchUpdateDialogTitle,
+                    summary = watchUpdateDialogSummary,
+                    show = showWatchUpdateDialog,
+                    onDismissRequest = {
+                        if (!watchIsForceUpdate) {
+                            showWatchUpdateDialog.value = false
+                        }
+                    }
+                ) {
+                    if (watchUpdateDownloadUrl != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            if (!watchIsForceUpdate) {
+                                Button(
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { showWatchUpdateDialog.value = false },
+                                    colors = ButtonDefaults.buttonColors()
+                                ) {
+                                    Text("取消")
+                                }
+                            }
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(watchUpdateDownloadUrl!!))
+                                    context.startActivity(intent)
+                                    if (!watchIsForceUpdate) {
+                                        showWatchUpdateDialog.value = false
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColorsPrimary()
+                            ) {
+                                Text(if (watchIsForceUpdate) "立即更新" else "前往下载", color = Color.White)
+                            }
+                        }
+                    } else {
+                        TextButton(
+                            text = "确定",
+                            onClick = { showWatchUpdateDialog.value = false },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
         }
     }
@@ -637,6 +740,129 @@ class MainActivity : ComponentActivity() {
                 cont.resumeWithException(e)
             }
     }
+
+    private suspend fun performWatchHandshake(nodeApi: NodeApi, messageApi: MessageApi, nodeId: String) {
+        var isReady = false
+        val listener = OnMessageReceivedListener { _, message ->
+            if (String(message).contains("ready")) {
+                isReady = true
+            }
+        }
+
+        try {
+            messageApi.addListener(nodeId, listener)
+            nodeApi.launchWearApp(nodeId, "/home")
+
+            var attempts = 0
+            while (attempts < 15 && !isReady) {
+                attempts++
+                messageApi.sendMessage(nodeId, "start".toByteArray(Charsets.UTF_8))
+
+                for (i in 0 until 12) {
+                    delay(50)
+                    if (isReady) break
+                }
+            }
+        } finally {
+            messageApi.removeListener(nodeId)
+        }
+
+        if (!isReady) {
+            throw Exception("握手失败：设备未响应")
+        }
+    }
+
+    private suspend fun requestWatchInfo(messageApi: MessageApi, nodeId: String): WatchInfoPayload {
+        val result = CompletableDeferred<String>()
+        val recentMessages = mutableListOf<String>()
+        var lastSendError: Throwable? = null
+        val listener = OnMessageReceivedListener { _, message ->
+            if (!result.isCompleted) {
+                val content = String(message, Charsets.UTF_8).ifBlank { "手表返回空消息" }
+                if (recentMessages.size >= 5) {
+                    recentMessages.removeAt(0)
+                }
+                recentMessages.add(content)
+                try {
+                    val json = JsonParser.parseString(content).asJsonObject
+                    val action = json.get("action")?.asString ?: ""
+                    if (action == "info") {
+                        result.complete(content)
+                    }
+                } catch (_: Exception) {
+                    // Ignore non-JSON or non-info messages (e.g. handshake ready)
+                }
+            }
+        }
+
+        try {
+            messageApi.addListener(nodeId, listener)
+
+            repeat(10) {
+                messageApi.sendMessage(nodeId, "info".toByteArray(Charsets.UTF_8))
+                    .addOnFailureListener { e ->
+                        lastSendError = e
+                    }
+
+                val raw = withTimeoutOrNull(800) { result.await() }
+                if (raw != null) {
+                    val payload = parseWatchInfoPayload(raw)
+                    if (payload.action != "info") {
+                        throw Exception("手表返回了非 info 消息: ${payload.action}")
+                    }
+                    return payload
+                }
+            }
+
+            val details = if (recentMessages.isNotEmpty()) {
+                "\n最近回包：${recentMessages.joinToString(" | ")}"
+            } else {
+                ""
+            }
+            if (lastSendError != null) {
+                throw Exception("请求手表端信息失败: ${lastSendError.message ?: "发送失败"}$details")
+            }
+            throw Exception("等待手表端信息超时（约8秒）$details")
+
+        } catch (e: Exception) {
+            throw e
+        } finally {
+            messageApi.removeListener(nodeId)
+        }
+    }
+
+    private fun parseWatchInfoPayload(raw: String): WatchInfoPayload {
+        return try {
+            val json = JsonParser.parseString(raw).asJsonObject
+            WatchInfoPayload(
+                action = json.get("action")?.asString ?: "",
+                versionName = json.get("versionName")?.asString ?: "",
+                deviceId = json.get("deviceId")?.asString ?: "",
+                timestamp = if (json.has("timestamp") && !json.get("timestamp").isJsonNull) json.get("timestamp").asLong else null
+            ).also {
+                if (it.action.isBlank() || it.versionName.isBlank()) {
+                    throw IllegalArgumentException("返回内容缺少 action 或 versionName")
+                }
+            }
+        } catch (e: Exception) {
+            throw IllegalArgumentException("手表返回格式无效: $raw")
+        }
+    }
+
+    private fun isVersionNewer(latestVersion: String, currentVersion: String): Boolean {
+        val latestParts = latestVersion.split(".").map { it.toIntOrNull() ?: 0 }
+        val currentParts = currentVersion.split(".").map { it.toIntOrNull() ?: 0 }
+        val maxLength = maxOf(latestParts.size, currentParts.size)
+
+        for (i in 0 until maxLength) {
+            val latest = latestParts.getOrElse(i) { 0 }
+            val current = currentParts.getOrElse(i) { 0 }
+            if (latest > current) return true
+            if (latest < current) return false
+        }
+        return false
+    }
+
 }
 
 @Composable
