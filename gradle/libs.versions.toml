@@ -18,6 +18,7 @@ ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "
 miuix-ui-android = { group = "top.yukonga.miuix.kmp", name = "miuix-ui-android", version.ref = "miuix" }
 miuix-icons-android = { group = "top.yukonga.miuix.kmp", name = "miuix-icons-android", version.ref = "miuix" }
 miuix-preference-android = { group = "top.yukonga.miuix.kmp", name = "miuix-preference-android", version.ref = "miuix" }
+miuix-blur-android = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", version.ref = "miuix" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

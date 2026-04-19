@@ -43,6 +43,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import com.xiaomi.xms.wearable.Wearable
@@ -84,6 +85,13 @@ import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.window.WindowDialog
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.isRenderEffectSupported
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
 import com.xiaomi.xms.wearable.message.MessageApi
@@ -168,44 +176,81 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val topBarBackdrop = if (isRenderEffectSupported()) {
+                    val surfaceColor = MiuixTheme.colorScheme.surface
+                    rememberLayerBackdrop {
+                        drawRect(surfaceColor)
+                        drawContent()
+                    }
+                } else {
+                    null
+                }
+                val topBarColor = if (topBarBackdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
+
                 Scaffold(
                     contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
                     topBar = {
-                        TopAppBar(
-                            title = "简明天气同步器",
-                            scrollBehavior = scrollBehavior,
-                            actions = {
-                                IconButton(
-                                    onClick = {
-                                        val intent = Intent(context, SponsorActivity::class.java)
-                                        context.startActivity(intent)
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = MiuixIcons.Favorites,
-                                        contentDescription = "赞助"
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                IconButton(
-                                    onClick = {
-                                        val intent = Intent(context, SettingsActivity::class.java)
-                                        context.startActivity(intent)
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = MiuixIcons.Settings,
-                                        contentDescription = "设置"
-                                    )
-                                }
+                        Box(
+                            modifier = if (topBarBackdrop != null) {
+                                Modifier.textureBlur(
+                                    backdrop = topBarBackdrop,
+                                    shape = RectangleShape,
+                                    blurRadius = 60f,
+                                    colors = BlurColors(
+                                        blendColors = listOf(
+                                            BlendColorEntry(
+                                                color = MiuixTheme.colorScheme.surface.copy(alpha = 0.8f)
+                                            ),
+                                        ),
+                                    ),
+                                )
+                            } else {
+                                Modifier
                             }
-                        )
+                        ) {
+                            TopAppBar(
+                                title = "简明天气同步器",
+                                color = topBarColor,
+                                scrollBehavior = scrollBehavior,
+                                actions = {
+                                    IconButton(
+                                        onClick = {
+                                            val intent = Intent(context, SponsorActivity::class.java)
+                                            context.startActivity(intent)
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = MiuixIcons.Favorites,
+                                            contentDescription = "赞助"
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    IconButton(
+                                        onClick = {
+                                            val intent = Intent(context, SettingsActivity::class.java)
+                                            context.startActivity(intent)
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = MiuixIcons.Settings,
+                                            contentDescription = "设置"
+                                        )
+                                    }
+                                }
+                            )
+                        }
                     }
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(innerPadding)
+                            .let { base ->
+                                if (topBarBackdrop != null) {
+                                    base.layerBackdrop(topBarBackdrop)
+                                } else {
+                                    base
+                                }
+                            }
                     ) {
                                 var isConnected by remember { mutableStateOf(false) }
                                 var deviceName by remember { mutableStateOf("") }
@@ -366,7 +411,8 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .overScrollVertical()
-                                        .nestedScroll(scrollBehavior.nestedScrollConnection)
+                                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                                    contentPadding = innerPadding
                                 ) {
                                     item {
                                         Card(

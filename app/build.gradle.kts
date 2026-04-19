@@ -121,6 +121,7 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.miuix.icons.android)
     implementation(libs.miuix.preference.android)
+    implementation(libs.miuix.blur.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

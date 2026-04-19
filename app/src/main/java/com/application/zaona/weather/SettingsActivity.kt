@@ -123,9 +123,7 @@ class SettingsActivity : ComponentActivity() {
                     }
                 ) { innerPadding ->
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         val currentVersion = remember {
                             try {
@@ -139,7 +137,8 @@ class SettingsActivity : ComponentActivity() {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .overScrollVertical()
-                                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                                .nestedScroll(scrollBehavior.nestedScrollConnection),
+                            contentPadding = innerPadding
                         ) {
                             item {
                             Spacer(modifier = Modifier.height(16.dp))
