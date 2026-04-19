@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
+import com.application.zaona.weather.ui.component.SponsorPromoCard
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import com.xiaomi.xms.wearable.Wearable
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -77,7 +77,6 @@ import androidx.compose.foundation.layout.union
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
-import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.Update
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -213,18 +212,6 @@ class MainActivity : ComponentActivity() {
                                 color = topBarColor,
                                 scrollBehavior = scrollBehavior,
                                 actions = {
-                                    IconButton(
-                                        onClick = {
-                                            val intent = Intent(context, SponsorActivity::class.java)
-                                            context.startActivity(intent)
-                                        }
-                                    ) {
-                                        Icon(
-                                            imageVector = MiuixIcons.Favorites,
-                                            contentDescription = "赞助"
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
                                     IconButton(
                                         onClick = {
                                             val intent = Intent(context, SettingsActivity::class.java)
@@ -415,8 +402,18 @@ class MainActivity : ComponentActivity() {
                                     contentPadding = innerPadding
                                 ) {
                                     item {
+                                        SponsorPromoCard(
+                                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                                            onClick = {
+                                                val intent = Intent(context, SponsorActivity::class.java)
+                                                context.startActivity(intent)
+                                            }
+                                        )
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
                                         Card(
-                                            modifier = Modifier.padding(16.dp)
+                                            modifier = Modifier.padding(horizontal = 16.dp)
                                         ) {
                                             ArrowPreference(
                                                 title = if (isConnected) "已连接设备" else "未连接设备",
@@ -427,6 +424,8 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             )
                                         }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
                                     
                                     Card(
                                         modifier = Modifier.padding(horizontal = 16.dp)
