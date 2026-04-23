@@ -87,12 +87,12 @@ fun SponsorPromoCard(
                     verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
                     Text(
-                        text = "支持本项目",
+                        text = "激活完整功能",
                         color = titleColor,
                         style = MiuixTheme.textStyles.title3,
                     )
                     Text(
-                        text = "赞助可帮助维护天气服务并支持后续功能开发。",
+                        text = "更好看好用的米环米表天气应用",
                         color = summaryColor,
                         style = MiuixTheme.textStyles.footnote1,
                     )
