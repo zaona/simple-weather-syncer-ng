@@ -7,6 +7,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.runtime.rememberCoroutineScope
 import com.application.zaona.weather.model.CityLocation
@@ -159,11 +160,71 @@ class MainActivity : ComponentActivity() {
                 var watchIsForceUpdate by remember { mutableStateOf(false) }
                 val showDeviceActionDialog = remember { mutableStateOf(false) }
                 val showDeviceConnectionWizardDialog = remember { mutableStateOf(false) }
-                val showDialog = remember { mutableStateOf(false) }
-                var dialogTitle by remember { mutableStateOf("") }
-                var dialogSummary by remember { mutableStateOf("") }
+                val showLoadingDialog = remember { mutableStateOf(false) }
+                var loadingDialogTitle by remember { mutableStateOf("") }
+                var loadingDialogSummary by remember { mutableStateOf("") }
+                var loadingDialogShownAt by remember { mutableStateOf(0L) }
+                var loadingDialogDismissJob by remember { mutableStateOf<Job?>(null) }
+                val showMessageDialog = remember { mutableStateOf(false) }
+                var messageDialogTitle by remember { mutableStateOf("") }
+                var messageDialogSummary by remember { mutableStateOf("") }
                 val showWeatherDataDialog = remember { mutableStateOf(false) }
                 var weatherDataPreview by remember { mutableStateOf("") }
+
+                fun showLoadingDialog(title: String, summary: String) {
+                    loadingDialogDismissJob?.cancel()
+                    loadingDialogDismissJob = null
+                    showMessageDialog.value = false
+                    loadingDialogTitle = title
+                    loadingDialogSummary = summary
+                    loadingDialogShownAt = SystemClock.elapsedRealtime()
+                    showLoadingDialog.value = true
+                }
+
+                fun updateLoadingDialog(summary: String, title: String = loadingDialogTitle) {
+                    loadingDialogTitle = title
+                    loadingDialogSummary = summary
+                }
+
+                fun hideLoadingDialog(onDismissed: (() -> Unit)? = null) {
+                    if (showLoadingDialog.value) {
+                        val elapsed = SystemClock.elapsedRealtime() - loadingDialogShownAt
+                        val remaining = (500L - elapsed).coerceAtLeast(0L)
+
+                        if (remaining > 0L) {
+                            loadingDialogDismissJob?.cancel()
+                            loadingDialogDismissJob = scope.launch {
+                                delay(remaining)
+                                showLoadingDialog.value = false
+                                loadingDialogDismissJob = null
+                                onDismissed?.invoke()
+                            }
+                        } else {
+                            showLoadingDialog.value = false
+                            onDismissed?.invoke()
+                        }
+                    } else {
+                        onDismissed?.invoke()
+                    }
+                }
+
+                fun showMessageDialog(title: String, summary: String) {
+                    val presentMessage: () -> Unit = {
+                        messageDialogTitle = title
+                        messageDialogSummary = summary
+                        showMessageDialog.value = true
+                    }
+
+                    if (showLoadingDialog.value) {
+                        hideLoadingDialog(onDismissed = presentMessage)
+                    } else {
+                        presentMessage()
+                    }
+                }
+
+                fun dismissMessageDialog() {
+                    showMessageDialog.value = false
+                }
                 
                 LaunchedEffect(Unit) {
                     // Auto check for update
@@ -345,32 +406,29 @@ class MainActivity : ComponentActivity() {
                                     showDeviceActionDialog.value = false
 
                                     if (!isConnected || nodeId.isEmpty()) {
-                                        dialogTitle = "提示"
-                                        dialogSummary = "请先连接设备"
-                                        showDialog.value = true
+                                        showMessageDialog("提示", "请先连接设备")
                                         return
                                     }
 
                                     scope.launch {
                                         try {
-                                            dialogTitle = "正在检查"
-                                            dialogSummary = "正在检查手表应用安装状态..."
-                                            showDialog.value = true
+                                            showLoadingDialog(
+                                                title = "正在检查",
+                                                summary = "正在检查手表应用安装状态..."
+                                            )
 
                                             val isInstalled = checkWatchAppInstalled(nodeApi, nodeId)
                                             if (!isInstalled) {
-                                                dialogTitle = "提示"
-                                                dialogSummary = "手表端未安装应用，请先安装"
-                                                showDialog.value = true
+                                                showMessageDialog("提示", "手表端未安装应用，请先安装")
                                                 return@launch
                                             }
 
-                                            dialogSummary = "正在启动应用并握手..."
+                                            updateLoadingDialog(summary = "正在启动应用并握手...")
                                             performWatchHandshake(nodeApi, messageApi, nodeId)
 
                                             delay(160)
 
-                                            dialogSummary = "正在获取手表端版本信息..."
+                                            updateLoadingDialog(summary = "正在获取手表端版本信息...")
                                             val watchInfo = requestWatchInfo(messageApi, nodeId)
                                             val quickApp = UpdateService.fetchQuickAppUpdateInfo()
                                             val hasUpdate = isVersionNewer(quickApp.versionName, watchInfo.versionName)
@@ -380,17 +438,17 @@ class MainActivity : ComponentActivity() {
                                                 watchUpdateDialogSummary = quickApp.updateDescription
                                                 watchUpdateDownloadUrl = quickApp.downloadUrl.takeIf { it.isNotBlank() }
                                                 watchIsForceUpdate = quickApp.forceUpdate
-                                                showDialog.value = false
-                                                showWatchUpdateDialog.value = true
+                                                hideLoadingDialog {
+                                                    showWatchUpdateDialog.value = true
+                                                }
                                             } else {
-                                                dialogTitle = "手表端已是最新"
-                                                dialogSummary = "当前版本：${watchInfo.versionName}"
-                                                showDialog.value = true
+                                                showMessageDialog(
+                                                    title = "手表端已是最新",
+                                                    summary = "当前版本：${watchInfo.versionName}"
+                                                )
                                             }
                                         } catch (e: Exception) {
-                                            dialogTitle = "检查失败"
-                                            dialogSummary = e.message ?: "未知错误"
-                                            showDialog.value = true
+                                            showMessageDialog("检查失败", e.message ?: "未知错误")
                                         }
                                     }
                                 }
@@ -557,14 +615,17 @@ class MainActivity : ComponentActivity() {
                                             .padding(top = 16.dp),
                                         onClick = {
                                             if (selectedCityLocation == null) {
-                                                dialogTitle = "提示"
-                                                dialogSummary = "请先设置位置"
-                                                showDialog.value = true
+                                                showMessageDialog("提示", "请先设置位置")
                                                 return@Button
                                             }
                                             
                                             scope.launch {
                                                 try {
+                                                    showLoadingDialog(
+                                                        title = "正在获取",
+                                                        summary = "正在获取天气数据..."
+                                                    )
+
                                                     val days = when(selectedSyncDaysIndex) {
                                                         0 -> "3d"
                                                         1 -> "7d"
@@ -581,12 +642,12 @@ class MainActivity : ComponentActivity() {
                                                         syncHourlyWeather
                                                     )
 
-                                                    weatherDataPreview = jsonString
-                                                    showWeatherDataDialog.value = true
+                                                    hideLoadingDialog {
+                                                        weatherDataPreview = jsonString
+                                                        showWeatherDataDialog.value = true
+                                                    }
                                                 } catch (e: Exception) {
-                                                    dialogTitle = "获取失败"
-                                                    dialogSummary = e.message ?: "未知错误"
-                                                    showDialog.value = true
+                                                    showMessageDialog("获取失败", e.message ?: "未知错误")
                                                 }
                                             }
                                         },
@@ -602,45 +663,39 @@ class MainActivity : ComponentActivity() {
                                             .padding(top = 16.dp),
                                         onClick = {
                                             if (selectedCityLocation == null) {
-                                                dialogTitle = "提示"
-                                                dialogSummary = "请先设置位置"
-                                                showDialog.value = true
+                                                showMessageDialog("提示", "请先设置位置")
                                                 return@Button
                                             }
 
                                             if (!isConnected || nodeId.isEmpty()) {
-                                                dialogTitle = "提示"
-                                                dialogSummary = "请先连接设备"
-                                                showDialog.value = true
+                                                showMessageDialog("提示", "请先连接设备")
                                                 return@Button
                                             }
                                             
                                             scope.launch {
                                                 try {
-                                                    dialogTitle = "正在检查"
-                                                    dialogSummary = "正在检查手表应用安装状态..."
-                                                    showDialog.value = true
+                                                    showLoadingDialog(
+                                                        title = "正在检查",
+                                                        summary = "正在检查手表应用安装状态..."
+                                                    )
                                                     
                                                     val isInstalled = checkWatchAppInstalled(nodeApi, nodeId)
                                                     if (!isInstalled) {
-                                                        dialogTitle = "提示"
-                                                        dialogSummary = "手表端未安装应用，请先安装"
-                                                        showDialog.value = true
+                                                        showMessageDialog("提示", "手表端未安装应用，请先安装")
                                                         return@launch
                                                     }
                                                 } catch (e: Exception) {
-                                                     dialogTitle = "检查失败"
-                                                     dialogSummary = "检查应用安装状态失败: ${e.message}"
-                                                     showDialog.value = true
+                                                     showMessageDialog("检查失败", "检查应用安装状态失败: ${e.message}")
                                                      return@launch
                                                 }
 
                                                 val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                                                 val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
                                                 try {
-                                                    dialogTitle = "正在同步"
-                                                    dialogSummary = "正在获取天气数据..."
-                                                    showDialog.value = true
+                                                    showLoadingDialog(
+                                                        title = "正在同步",
+                                                        summary = "正在获取天气数据..."
+                                                    )
                                                     
                                                     val days = when(selectedSyncDaysIndex) {
                                                         0 -> "3d"
@@ -659,28 +714,22 @@ class MainActivity : ComponentActivity() {
                                                     )
 
                                                     if (advancedSyncMode) {
-                                                        dialogSummary = "正在启动应用并握手..."
+                                                        updateLoadingDialog(summary = "正在启动应用并握手...")
                                                         performWatchHandshake(nodeApi, messageApi, nodeId)
                                                     }
 
-                                                    dialogSummary = "正在发送数据到设备..."
+                                                    updateLoadingDialog(summary = "正在发送数据到设备...")
                                                     
                                                     messageApi.sendMessage(nodeId, jsonString.toByteArray())
                                                         .addOnSuccessListener {
-                                                            dialogTitle = "同步成功"
-                                                            dialogSummary = "天气数据已发送到设备"
-                                                            showDialog.value = true
+                                                            showMessageDialog("同步成功", "天气数据已发送到设备")
                                                         }
                                                         .addOnFailureListener { e ->
-                                                            dialogTitle = "发送失败"
-                                                            dialogSummary = e.message ?: "未知错误"
-                                                            showDialog.value = true
+                                                            showMessageDialog("发送失败", e.message ?: "未知错误")
                                                         }
                                                     
                                                 } catch (e: Exception) {
-                                                    dialogTitle = "获取失败"
-                                                    dialogSummary = e.message ?: "未知错误"
-                                                    showDialog.value = true
+                                                    showMessageDialog("获取失败", e.message ?: "未知错误")
                                                 }
                                             }
                                         },
@@ -690,16 +739,40 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                     OverlayDialog(
-                                        title = dialogTitle,
-                                        summary = dialogSummary,
-                                        show = showDialog.value,
-                                        onDismissRequest = { showDialog.value = false }
+                                        title = messageDialogTitle,
+                                        summary = messageDialogSummary,
+                                        show = showMessageDialog.value,
+                                        onDismissRequest = { dismissMessageDialog() }
                                     ) {
                                         TextButton(
                                             text = "确定",
-                                            onClick = { showDialog.value = false },
+                                            onClick = { dismissMessageDialog() },
                                             modifier = Modifier.fillMaxWidth()
                                         )
+                                    }
+
+                                    OverlayDialog(
+                                        title = loadingDialogTitle,
+                                        summary = loadingDialogSummary,
+                                        show = showLoadingDialog.value,
+                                        onDismissRequest = { },
+                                        onDismissFinished = {
+                                            if (!showLoadingDialog.value) {
+                                                loadingDialogDismissJob?.cancel()
+                                                loadingDialogDismissJob = null
+                                            }
+                                        }
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            InfiniteProgressIndicator(
+                                                modifier = Modifier.size(40.dp)
+                                            )
+                                        }
                                     }
 
                                     WindowDialog(
@@ -790,9 +863,7 @@ class MainActivity : ComponentActivity() {
                                 clipboard.setPrimaryClip(clip)
                                 showWeatherDataDialog.value = false
 
-                                dialogTitle = "复制成功"
-                                dialogSummary = "天气数据已复制到剪贴板"
-                                showDialog.value = true
+                                showMessageDialog("复制成功", "天气数据已复制到剪贴板")
                             },
                             colors = ButtonDefaults.buttonColorsPrimary()
                         ) {

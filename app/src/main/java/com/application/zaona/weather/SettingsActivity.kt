@@ -182,10 +182,10 @@ class SettingsActivity : ComponentActivity() {
                                             showCheckingDialog.value = true
                                             // Add a minimum delay to ensure the dialog is visible and user perceives the check
                                             val checkJob = launch {
-                                                delay(1000)
+                                                delay(500)
                                             }
                                             val result = UpdateService.checkForUpdateManually(context)
-                                            checkJob.join() // Wait for at least 1 second
+                                            checkJob.join() // Wait for at least 0.5 second
                                             showCheckingDialog.value = false
 
                                             if (result.checkFailed) {
