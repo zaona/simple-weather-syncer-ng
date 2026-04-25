@@ -40,6 +40,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -75,6 +77,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.union
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Update
@@ -99,6 +102,7 @@ import com.xiaomi.xms.wearable.auth.AuthApi
 import com.xiaomi.xms.wearable.auth.Permission
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
@@ -150,6 +154,7 @@ class MainActivity : ComponentActivity() {
                 var watchUpdateDownloadUrl by remember { mutableStateOf<String?>(null) }
                 var watchIsForceUpdate by remember { mutableStateOf(false) }
                 val showDeviceActionDialog = remember { mutableStateOf(false) }
+                val showDeviceConnectionWizardDialog = remember { mutableStateOf(false) }
                 val showDialog = remember { mutableStateOf(false) }
                 var dialogTitle by remember { mutableStateOf("") }
                 var dialogSummary by remember { mutableStateOf("") }
@@ -242,6 +247,8 @@ class MainActivity : ComponentActivity() {
                                 var isConnected by remember { mutableStateOf(false) }
                                 var deviceName by remember { mutableStateOf("") }
                                 var nodeId by remember { mutableStateOf("") }
+                                var isReconnecting by remember { mutableStateOf(false) }
+                                var reconnectTimeoutJob by remember { mutableStateOf<Job?>(null) }
                                 val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
                                 val messageApi = remember { Wearable.getMessageApi(context.applicationContext) }
                                 val authApi = remember { Wearable.getAuthApi(context.applicationContext) }
@@ -268,26 +275,65 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                 
-                                fun checkConnection() {
+                                fun checkConnection(onComplete: ((Boolean) -> Unit)? = null) {
                                     nodeApi.connectedNodes.addOnSuccessListener { nodes ->
-                                        if (nodes.isNotEmpty()) {
+                                        val connectedNode = nodes.firstOrNull()
+                                        if (connectedNode != null) {
                                             isConnected = true
-                                            deviceName = nodes[0].name
-                                            nodeId = nodes[0].id
-                                            
+                                            deviceName = connectedNode.name
+                                            nodeId = connectedNode.id
+
                                             // Report device name to backend API
                                             scope.launch {
                                                 DeviceReportService.reportDeviceName(deviceName)
                                             }
 
                                             checkAndRequestPermissions(nodeId)
+                                            onComplete?.invoke(true)
                                         } else {
                                             isConnected = false
                                             deviceName = ""
                                             nodeId = ""
+                                            onComplete?.invoke(false)
                                         }
                                     }.addOnFailureListener {
                                         isConnected = false
+                                        deviceName = ""
+                                        nodeId = ""
+                                        onComplete?.invoke(false)
+                                    }
+                                }
+
+                                fun retryDeviceConnection() {
+                                    if (isReconnecting) return
+
+                                    reconnectTimeoutJob?.cancel()
+                                    isReconnecting = true
+
+                                    reconnectTimeoutJob = scope.launch {
+                                        delay(1000)
+                                        if (isReconnecting) {
+                                            isReconnecting = false
+                                            isConnected = false
+                                            deviceName = ""
+                                            nodeId = ""
+                                            showDeviceActionDialog.value = false
+                                            showDeviceConnectionWizardDialog.value = true
+                                        }
+                                    }
+
+                                    checkConnection { connected ->
+                                        reconnectTimeoutJob?.cancel()
+                                        reconnectTimeoutJob = null
+                                        isReconnecting = false
+
+                                        if (connected) {
+                                            showDeviceConnectionWizardDialog.value = false
+                                            showDeviceActionDialog.value = true
+                                        } else {
+                                            showDeviceActionDialog.value = false
+                                            showDeviceConnectionWizardDialog.value = true
+                                        }
                                     }
                                 }
 
@@ -330,6 +376,7 @@ class MainActivity : ComponentActivity() {
                                                 watchUpdateDialogSummary = quickApp.updateDescription
                                                 watchUpdateDownloadUrl = quickApp.downloadUrl.takeIf { it.isNotBlank() }
                                                 watchIsForceUpdate = quickApp.forceUpdate
+                                                showDialog.value = false
                                                 showWatchUpdateDialog.value = true
                                             } else {
                                                 dialogTitle = "手表端已是最新"
@@ -415,14 +462,41 @@ class MainActivity : ComponentActivity() {
                                         Card(
                                             modifier = Modifier.padding(horizontal = 16.dp)
                                         ) {
-                                            ArrowPreference(
-                                                title = if (isConnected) "已连接设备" else "未连接设备",
-                                                summary = if (isConnected && deviceName.isNotBlank()) deviceName else "点击重试",
+                                            BasicComponent(
+                                                endActions = {
+                                                    Icon(
+                                                        imageVector = MiuixIcons.Basic.ArrowRight,
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .align(Alignment.CenterVertically)
+                                                            .size(16.dp),
+                                                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions
+                                                    )
+                                                },
                                                 onClick = {
-                                                    checkConnection()
-                                                    showDeviceActionDialog.value = true
+                                                    if (isConnected && nodeId.isNotEmpty()) {
+                                                        showDeviceActionDialog.value = true
+                                                    } else if (!isReconnecting) {
+                                                        retryDeviceConnection()
+                                                    }
                                                 }
-                                            )
+                                            ) {
+                                                Text(
+                                                    text = if (isConnected) "已连接设备" else "未连接设备",
+                                                    fontSize = MiuixTheme.textStyles.headline1.fontSize,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MiuixTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = when {
+                                                        isConnected && deviceName.isNotBlank() -> deviceName
+                                                        isReconnecting -> "正在连接设备..."
+                                                        else -> "点击重新连接"
+                                                    },
+                                                    fontSize = MiuixTheme.textStyles.body2.fontSize,
+                                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                                )
+                                            }
                                         }
 
                                         Spacer(modifier = Modifier.height(12.dp))
@@ -612,12 +686,8 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                     WindowDialog(
-                                        title = "连接设备",
-                                        summary = if (isConnected && deviceName.isNotBlank()) {
-                                            "当前设备：$deviceName"
-                                        } else {
-                                            "当前未连接设备"
-                                        },
+                                        title = "已连接设备",
+                                        summary = "当前设备：$deviceName",
                                         show = showDeviceActionDialog.value,
                                         onDismissRequest = { showDeviceActionDialog.value = false }
                                     ) {
@@ -627,6 +697,39 @@ class MainActivity : ComponentActivity() {
                                             colors = ButtonDefaults.buttonColorsPrimary()
                                         ) {
                                             Text("检查手表端更新", color = Color.White)
+                                        }
+                                    }
+
+                                    WindowDialog(
+                                        title = "未连接设备",
+                                        summary = null,
+                                        show = showDeviceConnectionWizardDialog.value,
+                                        onDismissRequest = { showDeviceConnectionWizardDialog.value = false }
+                                    ) {
+                                        Text(
+                                            text = """
+                                                1. 小米运动健康中连接设备
+                                                2. 保证小米运动健康后台运行
+                                                3. 返回当前页面重试
+                                                4. 若手机已解锁BL，请将小米运动健康和本同步器隐藏
+                                            """.trimIndent(),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            fontSize = MiuixTheme.textStyles.body1.fontSize,
+                                            textAlign = TextAlign.Start,
+                                            color = MiuixTheme.colorScheme.onSurfaceSecondary
+                                        )
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            TextButton(
+                                                text = "确定",
+                                                modifier = Modifier.fillMaxWidth(),
+                                                onClick = { showDeviceConnectionWizardDialog.value = false }
+                                            )
                                         }
                                     }
                                     }
