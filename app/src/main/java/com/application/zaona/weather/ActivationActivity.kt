@@ -64,7 +64,6 @@ import top.yukonga.miuix.kmp.icon.extended.Create
 import top.yukonga.miuix.kmp.icon.extended.Link
 import top.yukonga.miuix.kmp.icon.extended.MindMap
 import top.yukonga.miuix.kmp.icon.extended.Report
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.shapes.SmoothRoundedCornerShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -119,9 +118,11 @@ class ActivationActivity : ComponentActivity() {
                 val bottomActionBrush = remember(surface) {
                     Brush.verticalGradient(
                         colors = listOf(
-                            surface.copy(alpha = 0.14f),
-                            surface.copy(alpha = 0.78f),
-                            surface.copy(alpha = 0.98f),
+                            surface.copy(alpha = 0f),
+                            surface.copy(alpha = 0.30f),
+                            surface.copy(alpha = 0.60f),
+                            surface.copy(alpha = 0.80f),
+                            surface.copy(alpha = 0.90f),
                         ),
                     )
                 }
@@ -145,8 +146,8 @@ class ActivationActivity : ComponentActivity() {
                         ),
                         BenefitItemUi(
                             icon = MiuixIcons.MindMap,
-                            title = "一次购买，多设备使用",
-                            summary = "登录爱发电账号，至多绑定3台设备"
+                            title = "一次购买，多设备可用",
+                            summary = "无需为每个手环手表单独购买"
                         ),
                         BenefitItemUi(
                             icon = MiuixIcons.Report,
@@ -203,7 +204,7 @@ class ActivationActivity : ComponentActivity() {
                                 .padding(innerPadding)
                                 .overScrollVertical()
                                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-                            contentPadding = PaddingValues(bottom = 160.dp)
+                            contentPadding = PaddingValues(bottom = 176.dp)
                         ) {
                             item {
                                 Column(
@@ -237,48 +238,6 @@ class ActivationActivity : ComponentActivity() {
                                             }
                                         }
                                     }
-
-                                    Card(
-                                        colors = CardDefaults.defaultColors(
-                                            color = cardColor,
-                                            contentColor = onSurface,
-                                        )
-                                    ) {
-                                        ArrowPreference(
-                                            title = "未登录",
-                                            summary = "请先绑定爱发电账号",
-                                            onClick = {
-                                                context.startActivity(Intent(context, UserActivity::class.java))
-                                            },
-                                        )
-                                    }
-
-                                    Card(
-                                        colors = CardDefaults.defaultColors(
-                                            color = cardColor,
-                                            contentColor = onSurface,
-                                        )
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(20.dp),
-                                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                                        ) {
-                                            Text(
-                                                text = "1. 登录绑定爱发电账号",
-                                                color = secondaryTextColor
-                                            )
-                                            Text(
-                                                text = "2. 点击“立即激活”购买商品",
-                                                color = secondaryTextColor
-                                            )
-                                            Text(
-                                                text = "3. 点击“我已支付”验证激活",
-                                                color = secondaryTextColor
-                                            )
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -292,7 +251,7 @@ class ActivationActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .navigationBarsPadding()
-                                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                                    .padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Button(
@@ -307,7 +266,7 @@ class ActivationActivity : ComponentActivity() {
                                     onClick = { },
                                     colors = ButtonDefaults.buttonColors()
                                 ) {
-                                    Text("我已支付")
+                                    Text("复制识别码")
                                 }
                             }
                         }
@@ -324,7 +283,7 @@ private fun PriceHero(
     aboutLogoBlend: List<BlendColorEntry>,
 ) {
     Text(
-        text = "¥2",
+        text = "¥1.99",
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 12.dp)
@@ -354,19 +313,17 @@ private fun BenefitItem(
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier
-                .padding(top = 2.dp)
-                .size(22.dp),
+            modifier = Modifier.size(24.dp),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
         Column(
@@ -379,7 +336,8 @@ private fun BenefitItem(
             )
             Text(
                 text = summary,
-                color = summaryColor
+                color = summaryColor,
+                style = MiuixTheme.textStyles.footnote1
             )
         }
     }
