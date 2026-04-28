@@ -141,11 +141,12 @@ class SettingsActivity : ComponentActivity() {
                             contentPadding = innerPadding
                         ) {
                             item {
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            SmallTitle(text = "通用")
 
                             Card(
                                 modifier = Modifier
-                                    .padding(horizontal = 16.dp)
+                                    .padding(horizontal = 12.dp)
                                     .padding(bottom = 12.dp)
                             ) {
                                 val themeModeOptions = listOf("跟随系统", "浅色", "深色")
@@ -216,7 +217,7 @@ class SettingsActivity : ComponentActivity() {
                             SmallTitle(text = "更多内容")
                             Card(
                                 modifier = Modifier
-                                    .padding(horizontal = 16.dp)
+                                    .padding(horizontal = 12.dp)
                                     .padding(bottom = 12.dp)
                             ) {
                                 ArrowPreference(
@@ -241,7 +242,7 @@ class SettingsActivity : ComponentActivity() {
                             SmallTitle(text = "特别鸣谢")
                             Card(
                                 modifier = Modifier
-                                    .padding(horizontal = 16.dp)
+                                    .padding(horizontal = 12.dp)
                                     .padding(bottom = 12.dp)
                             ) {
                                 ArrowPreference(

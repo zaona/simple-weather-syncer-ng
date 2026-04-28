@@ -126,11 +126,12 @@ class SponsorActivity : ComponentActivity() {
                         contentPadding = innerPadding
                     ) {
                         item {
+                            Spacer(modifier = Modifier.height(12.dp))
+
                             Button(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                                    .padding(top = 16.dp, bottom = 16.dp),
+                                    .padding(horizontal = 12.dp),
                                 onClick = {
                                     // Open sponsor link
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://afdian.com/a/zaona"))
@@ -140,11 +141,15 @@ class SponsorActivity : ComponentActivity() {
                             ) {
                                 Text("前往赞助", color = Color.White)
                             }
+
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
 
                         item {
                             Card(
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp)
+                                    .padding(bottom = 12.dp)
                             ) {
                                 if (isLoading) {
                                     Box(
@@ -191,7 +196,7 @@ class SponsorActivity : ComponentActivity() {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(16.dp),
+                                        .padding(horizontal = 12.dp).padding(bottom = 12.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(

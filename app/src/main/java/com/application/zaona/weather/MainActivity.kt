@@ -584,7 +584,7 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     item {
                                         SponsorPromoCard(
-                                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp),
                                             onClick = {
                                                 val intent = Intent(context, ActivationActivity::class.java)
                                                 context.startActivity(intent)
@@ -594,7 +594,9 @@ class MainActivity : ComponentActivity() {
                                         Spacer(modifier = Modifier.height(12.dp))
 
                                         Card(
-                                            modifier = Modifier.padding(horizontal = 16.dp)
+                                            modifier = Modifier
+                                                .padding(horizontal = 12.dp)
+                                                .padding(bottom = 12.dp)
                                         ) {
                                             BasicComponent(
                                                 endActions = {
@@ -633,10 +635,10 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
 
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                    
                                     Card(
-                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                        modifier = Modifier
+                                            .padding(horizontal = 12.dp)
+                                            .padding(bottom = 12.dp)
                                     ) {
                                         ArrowPreference(
                                             title = "位置设置",
@@ -670,14 +672,13 @@ class MainActivity : ComponentActivity() {
                                     Button(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                            .padding(top = 16.dp),
+                                            .padding(horizontal = 12.dp),
                                         onClick = {
                                             if (selectedCityLocation == null) {
                                                 showMessageDialog("提示", "请先设置位置")
                                                 return@Button
                                             }
-                                            
+
                                             scope.launch {
                                                 try {
                                                     showLoadingDialog(
@@ -715,11 +716,12 @@ class MainActivity : ComponentActivity() {
                                         Text("复制数据")
                                     }
 
+                                    Spacer(modifier = Modifier.height(12.dp))
+
                                     Button(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                            .padding(top = 16.dp),
+                                            .padding(horizontal = 12.dp),
                                         onClick = {
                                             if (selectedCityLocation == null) {
                                                 showMessageDialog("提示", "请先设置位置")
@@ -796,6 +798,8 @@ class MainActivity : ComponentActivity() {
                                         ) {
                                             Text("同步数据", color = Color.White)
                                         }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
 
                                     OverlayDialog(
                                         title = messageDialogTitle,
@@ -1079,7 +1083,7 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween

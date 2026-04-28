@@ -208,7 +208,7 @@ class ActivationActivity : ComponentActivity() {
                         ) {
                             item {
                                 Column(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                                    modifier = Modifier.padding(vertical = 16.dp),
                                     verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     PriceHero(
@@ -217,6 +217,9 @@ class ActivationActivity : ComponentActivity() {
                                     )
 
                                     Card(
+                                        modifier = Modifier
+                                            .padding(horizontal = 12.dp)
+                                            .padding(bottom = 12.dp),
                                         colors = CardDefaults.defaultColors(
                                             color = cardColor,
                                             contentColor = onSurface,
@@ -251,7 +254,7 @@ class ActivationActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .navigationBarsPadding()
-                                    .padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 16.dp),
+                                    .padding(start = 12.dp, end = 12.dp, top = 32.dp, bottom = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Button(
@@ -286,7 +289,7 @@ private fun PriceHero(
         text = "¥1.99",
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp)
+            .padding(horizontal = 24.dp)
             .textureBlur(
                 backdrop = backdrop,
                 shape = SmoothRoundedCornerShape(24.dp),
