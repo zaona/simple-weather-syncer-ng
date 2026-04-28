@@ -67,6 +67,7 @@ import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.height
@@ -127,6 +128,13 @@ class MainActivity : ComponentActivity() {
         val timestamp: Long?
     )
 
+    private data class WatchStoragePayload(
+        val action: String,
+        val totalStorage: Long,
+        val availableStorage: Long,
+        val timestamp: Long?
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -170,6 +178,10 @@ class MainActivity : ComponentActivity() {
                 var messageDialogSummary by remember { mutableStateOf("") }
                 val showWeatherDataDialog = remember { mutableStateOf(false) }
                 var weatherDataPreview by remember { mutableStateOf("") }
+                val showWatchStorageDialog = remember { mutableStateOf(false) }
+                var watchStorageTotal by remember { mutableStateOf(0L) }
+                var watchStorageAvailable by remember { mutableStateOf(0L) }
+                var watchStorageTimestamp by remember { mutableStateOf<Long?>(null) }
 
                 fun showLoadingDialog(title: String, summary: String) {
                     loadingDialogDismissJob?.cancel()
@@ -423,10 +435,13 @@ class MainActivity : ComponentActivity() {
                                                 return@launch
                                             }
 
-                                            updateLoadingDialog(summary = "正在启动应用并握手...")
-                                            performWatchHandshake(nodeApi, messageApi, nodeId)
-
-                                            delay(160)
+                                            val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                            val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
+                                            if (advancedSyncMode) {
+                                                updateLoadingDialog(summary = "正在启动应用并握手...")
+                                                performWatchHandshake(nodeApi, messageApi, nodeId)
+                                                delay(160)
+                                            }
 
                                             updateLoadingDialog(summary = "正在获取手表端版本信息...")
                                             val watchInfo = requestWatchInfo(messageApi, nodeId)
@@ -452,7 +467,51 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
-                                
+
+                                fun checkWatchStorage() {
+                                    showDeviceActionDialog.value = false
+
+                                    if (!isConnected || nodeId.isEmpty()) {
+                                        showMessageDialog("提示", "请先连接设备")
+                                        return
+                                    }
+
+                                    scope.launch {
+                                        try {
+                                            showLoadingDialog(
+                                                title = "正在检查",
+                                                summary = "正在检查手表应用安装状态..."
+                                            )
+
+                                            val isInstalled = checkWatchAppInstalled(nodeApi, nodeId)
+                                            if (!isInstalled) {
+                                                showMessageDialog("提示", "手表端未安装应用，请先安装")
+                                                return@launch
+                                            }
+
+                                            val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                            val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
+                                            if (advancedSyncMode) {
+                                                updateLoadingDialog(summary = "正在启动应用并握手...")
+                                                performWatchHandshake(nodeApi, messageApi, nodeId)
+                                                delay(160)
+                                            }
+
+                                            updateLoadingDialog(summary = "正在获取手表存储空间信息...")
+                                            val storageInfo = requestWatchStorage(messageApi, nodeId)
+
+                                            hideLoadingDialog {
+                                                watchStorageTotal = storageInfo.totalStorage
+                                                watchStorageAvailable = storageInfo.availableStorage
+                                                watchStorageTimestamp = storageInfo.timestamp
+                                                showWatchStorageDialog.value = true
+                                            }
+                                        } catch (e: Exception) {
+                                            showMessageDialog("检查失败", e.message ?: "未知错误")
+                                        }
+                                    }
+                                }
+
                                 LaunchedEffect(Unit) {
                                     checkConnection()
                                 }
@@ -788,6 +847,16 @@ class MainActivity : ComponentActivity() {
                                         ) {
                                             Text("检查手表端更新", color = Color.White)
                                         }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        Button(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            onClick = { checkWatchStorage() },
+                                            colors = ButtonDefaults.buttonColorsPrimary()
+                                        ) {
+                                            Text("检查手表存储空间", color = Color.White)
+                                        }
                                     }
 
                                     WindowDialog(
@@ -965,6 +1034,127 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+
+                WindowDialog(
+                    title = "手表存储空间",
+                    summary = null,
+                    show = showWatchStorageDialog.value,
+                    onDismissRequest = { showWatchStorageDialog.value = false }
+                ) {
+                    val usedStorage = watchStorageTotal - watchStorageAvailable
+                    val usedRatio = if (watchStorageTotal > 0) {
+                        (usedStorage.toFloat() / watchStorageTotal.toFloat()).coerceIn(0f, 1f)
+                    } else 0f
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(140.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                progress = usedRatio,
+                                size = 140.dp,
+                                strokeWidth = 10.dp
+                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = formatBytes(usedStorage),
+                                    fontSize = MiuixTheme.textStyles.headline1.fontSize,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MiuixTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "已使用",
+                                    fontSize = MiuixTheme.textStyles.body2.fontSize,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "总容量",
+                                        fontSize = MiuixTheme.textStyles.body1.fontSize,
+                                        color = MiuixTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = formatBytes(watchStorageTotal),
+                                        fontSize = MiuixTheme.textStyles.body1.fontSize,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MiuixTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "可用空间",
+                                        fontSize = MiuixTheme.textStyles.body1.fontSize,
+                                        color = MiuixTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = formatBytes(watchStorageAvailable),
+                                        fontSize = MiuixTheme.textStyles.body1.fontSize,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MiuixTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "已用空间",
+                                        fontSize = MiuixTheme.textStyles.body1.fontSize,
+                                        color = MiuixTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = formatBytes(usedStorage),
+                                        fontSize = MiuixTheme.textStyles.body1.fontSize,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MiuixTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+
+                        if (watchStorageTimestamp != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "获取时间：${formatTimestamp(watchStorageTimestamp!!)}",
+                                fontSize = MiuixTheme.textStyles.body2.fontSize,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    TextButton(
+                        text = "确定",
+                        onClick = { showWatchStorageDialog.value = false },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }
@@ -992,11 +1182,11 @@ class MainActivity : ComponentActivity() {
             nodeApi.launchWearApp(nodeId, "/home")
 
             var attempts = 0
-            while (attempts < 15 && !isReady) {
+            while (attempts < 5 && !isReady) {
                 attempts++
                 messageApi.sendMessage(nodeId, "start".toByteArray(Charsets.UTF_8))
 
-                for (i in 0 until 12) {
+                for (i in 0 until 20) {
                     delay(50)
                     if (isReady) break
                 }
@@ -1012,15 +1202,9 @@ class MainActivity : ComponentActivity() {
 
     private suspend fun requestWatchInfo(messageApi: MessageApi, nodeId: String): WatchInfoPayload {
         val result = CompletableDeferred<String>()
-        val recentMessages = mutableListOf<String>()
-        var lastSendError: Throwable? = null
         val listener = OnMessageReceivedListener { _, message ->
             if (!result.isCompleted) {
-                val content = String(message, Charsets.UTF_8).ifBlank { "手表返回空消息" }
-                if (recentMessages.size >= 5) {
-                    recentMessages.removeAt(0)
-                }
-                recentMessages.add(content)
+                val content = String(message, Charsets.UTF_8)
                 try {
                     val json = JsonParser.parseString(content).asJsonObject
                     val action = json.get("action")?.asString ?: ""
@@ -1028,7 +1212,7 @@ class MainActivity : ComponentActivity() {
                         result.complete(content)
                     }
                 } catch (_: Exception) {
-                    // Ignore non-JSON or non-info messages (e.g. handshake ready)
+                    // Ignore non-JSON or non-info messages
                 }
             }
         }
@@ -1036,31 +1220,64 @@ class MainActivity : ComponentActivity() {
         try {
             messageApi.addListener(nodeId, listener)
 
-            repeat(10) {
-                messageApi.sendMessage(nodeId, "info".toByteArray(Charsets.UTF_8))
-                    .addOnFailureListener { e ->
-                        lastSendError = e
+            messageApi.sendMessage(nodeId, "info".toByteArray(Charsets.UTF_8))
+                .addOnFailureListener { e ->
+                    if (!result.isCompleted) {
+                        result.completeExceptionally(Exception("发送失败: ${e.message}"))
                     }
+                }
 
-                val raw = withTimeoutOrNull(800) { result.await() }
-                if (raw != null) {
-                    val payload = parseWatchInfoPayload(raw)
-                    if (payload.action != "info") {
-                        throw Exception("手表返回了非 info 消息: ${payload.action}")
+            val raw = withTimeoutOrNull(8000) { result.await() }
+                ?: throw Exception("等待手表端信息超时")
+
+            val payload = parseWatchInfoPayload(raw)
+            if (payload.action != "info") {
+                throw Exception("手表返回了非 info 消息: ${payload.action}")
+            }
+            return payload
+
+        } catch (e: Exception) {
+            throw e
+        } finally {
+            messageApi.removeListener(nodeId)
+        }
+    }
+
+    private suspend fun requestWatchStorage(messageApi: MessageApi, nodeId: String): WatchStoragePayload {
+        val result = CompletableDeferred<String>()
+        val listener = OnMessageReceivedListener { _, message ->
+            if (!result.isCompleted) {
+                val content = String(message, Charsets.UTF_8)
+                try {
+                    val json = JsonParser.parseString(content).asJsonObject
+                    val action = json.get("action")?.asString ?: ""
+                    if (action == "storage") {
+                        result.complete(content)
                     }
-                    return payload
+                } catch (_: Exception) {
+                    // Ignore non-JSON or non-storage messages
                 }
             }
+        }
 
-            val details = if (recentMessages.isNotEmpty()) {
-                "\n最近回包：${recentMessages.joinToString(" | ")}"
-            } else {
-                ""
+        try {
+            messageApi.addListener(nodeId, listener)
+
+            messageApi.sendMessage(nodeId, "storage".toByteArray(Charsets.UTF_8))
+                .addOnFailureListener { e ->
+                    if (!result.isCompleted) {
+                        result.completeExceptionally(Exception("发送失败: ${e.message}"))
+                    }
+                }
+
+            val raw = withTimeoutOrNull(8000) { result.await() }
+                ?: throw Exception("等待手表端存储信息超时")
+
+            val payload = parseWatchStoragePayload(raw)
+            if (payload.action != "storage") {
+                throw Exception("手表返回了非 storage 消息: ${payload.action}")
             }
-            if (lastSendError != null) {
-                throw Exception("请求手表端信息失败: ${lastSendError.message ?: "发送失败"}$details")
-            }
-            throw Exception("等待手表端信息超时（约8秒）$details")
+            return payload
 
         } catch (e: Exception) {
             throw e
@@ -1087,6 +1304,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun parseWatchStoragePayload(raw: String): WatchStoragePayload {
+        return try {
+            val json = JsonParser.parseString(raw).asJsonObject
+            WatchStoragePayload(
+                action = json.get("action")?.asString ?: "",
+                totalStorage = json.get("totalStorage")?.asLong ?: 0L,
+                availableStorage = json.get("availableStorage")?.asLong ?: 0L,
+                timestamp = if (json.has("timestamp") && !json.get("timestamp").isJsonNull) json.get("timestamp").asLong else null
+            ).also {
+                if (it.action.isBlank()) {
+                    throw IllegalArgumentException("返回内容缺少 action")
+                }
+                if (it.totalStorage <= 0L) {
+                    throw IllegalArgumentException("返回内容缺少有效的 totalStorage")
+                }
+            }
+        } catch (e: Exception) {
+            throw IllegalArgumentException("手表返回格式无效: $raw")
+        }
+    }
+
     private fun isVersionNewer(latestVersion: String, currentVersion: String): Boolean {
         val latestParts = latestVersion.split(".").map { it.toIntOrNull() ?: 0 }
         val currentParts = currentVersion.split(".").map { it.toIntOrNull() ?: 0 }
@@ -1099,6 +1337,20 @@ class MainActivity : ComponentActivity() {
             if (latest < current) return false
         }
         return false
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        return when {
+            bytes >= 1_073_741_824L -> "%.2f GB".format(bytes / 1_073_741_824.0)
+            bytes >= 1_048_576L -> "%.2f MB".format(bytes / 1_048_576.0)
+            bytes >= 1_024L -> "%.2f KB".format(bytes / 1_024.0)
+            else -> "$bytes B"
+        }
+    }
+
+    private fun formatTimestamp(timestamp: Long): String {
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+        return sdf.format(java.util.Date(timestamp))
     }
 
 }
