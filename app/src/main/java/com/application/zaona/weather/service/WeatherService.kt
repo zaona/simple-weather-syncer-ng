@@ -88,6 +88,7 @@ object WeatherService {
         days: String,
         cityName: String,
         syncHourly: Boolean,
+        syncAlerts: Boolean = false,
     ): String {
         val payload = JsonObject().apply {
             addProperty("locationId", locationId)
@@ -96,6 +97,9 @@ object WeatherService {
                 addProperty("daily", days)
                 if (syncHourly) {
                     addProperty("hourly", "168h")
+                }
+                if (syncAlerts) {
+                    addProperty("alerts", true)
                 }
             })
         }
