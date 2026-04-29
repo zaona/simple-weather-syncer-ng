@@ -588,7 +588,7 @@ class MainActivity : ComponentActivity() {
                                         SponsorPromoCard(
                                             modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp),
                                             onClick = {
-                                                val intent = Intent(context, ActivationActivity::class.java)
+                                                val intent = Intent(context, SponsorActivity::class.java)
                                                 context.startActivity(intent)
                                             }
                                         )
