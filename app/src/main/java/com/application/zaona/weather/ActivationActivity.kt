@@ -67,6 +67,7 @@ import top.yukonga.miuix.kmp.icon.extended.Report
 import top.yukonga.miuix.kmp.shapes.SmoothRoundedCornerShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import androidx.compose.ui.graphics.BlendMode as ComposeBlendMode
 
 private const val AFDIAN_URL = "https://afdian.com/a/zaona"
@@ -203,6 +204,7 @@ class ActivationActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .padding(innerPadding)
                                 .overScrollVertical()
+                                .scrollEndHaptic()
                                 .nestedScroll(scrollBehavior.nestedScrollConnection),
                             contentPadding = PaddingValues(bottom = 176.dp)
                         ) {

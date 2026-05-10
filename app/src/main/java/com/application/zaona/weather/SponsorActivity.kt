@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.union
 import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.whenStarted
@@ -122,6 +123,7 @@ class SponsorActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxSize()
                             .overScrollVertical()
+                            .scrollEndHaptic()
                             .nestedScroll(scrollBehavior.nestedScrollConnection),
                         contentPadding = innerPadding
                     ) {

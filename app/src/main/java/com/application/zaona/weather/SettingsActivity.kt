@@ -62,6 +62,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 class SettingsActivity : ComponentActivity() {
@@ -137,6 +138,7 @@ class SettingsActivity : ComponentActivity() {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .overScrollVertical()
+                                .scrollEndHaptic()
                                 .nestedScroll(scrollBehavior.nestedScrollConnection),
                             contentPadding = innerPadding
                         ) {
