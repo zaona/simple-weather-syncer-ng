@@ -530,9 +530,9 @@ class MainActivity : ComponentActivity() {
                                 }
                                 
                                 val syncDaysOptions = listOf("3天", "7天", "10天", "15天", "30天")
-                                var selectedSyncDaysIndex by remember { mutableIntStateOf(0) }
-                                var syncHourlyWeather by remember { mutableStateOf(false) }
-                                var syncAlertData by remember { mutableStateOf(false) }
+                                var selectedSyncDaysIndex by remember { mutableIntStateOf(1) }
+                                var syncHourlyWeather by remember { mutableStateOf(true) }
+                                var syncAlertData by remember { mutableStateOf(true) }
                                 
                                 var currentLocation by remember { mutableStateOf("未设置") }
                                 var selectedCityLocation by remember { mutableStateOf<CityLocation?>(null) }
@@ -540,9 +540,9 @@ class MainActivity : ComponentActivity() {
                                 // Load saved preferences
                                 LaunchedEffect(Unit) {
                                     val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                                    selectedSyncDaysIndex = prefs.getInt("sync_days_index", 0)
-                                    syncHourlyWeather = prefs.getBoolean("sync_hourly_weather", false)
-                                    syncAlertData = prefs.getBoolean("sync_alert_data", false)
+                                    selectedSyncDaysIndex = prefs.getInt("sync_days_index", 1)
+                                    syncHourlyWeather = prefs.getBoolean("sync_hourly_weather", true)
+                                    syncAlertData = prefs.getBoolean("sync_alert_data", true)
                                     currentLocation = prefs.getString("selected_location_name", "未设置") ?: "未设置"
                                     val locationJson = prefs.getString("selected_location_json", null)
                                     if (locationJson != null) {
