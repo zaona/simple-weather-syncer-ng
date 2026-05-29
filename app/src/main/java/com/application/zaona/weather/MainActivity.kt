@@ -951,7 +951,7 @@ class MainActivity : ComponentActivity() {
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Button(
                             modifier = Modifier.weight(1f),

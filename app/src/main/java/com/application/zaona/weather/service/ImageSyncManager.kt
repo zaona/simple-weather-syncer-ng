@@ -7,9 +7,12 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
 import com.xiaomi.xms.wearable.message.MessageApi
+import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import kotlin.coroutines.resume
@@ -20,7 +23,7 @@ import kotlin.coroutines.resumeWithException
  * 将用户选择的自定义天气背景图通过 MessageApi 分块传输到手表端
  *
  * 传输协议（JSON + Base64）：
- *   Header: {"type":"header","totalSize":N,"chunkSize":3072,"totalChunks":N,"width":N,"height":N,"weatherCode":"21"}
+ *   Header: {"type":"header","totalSize":N,"chunkSize":3072,"totalChunks":N,"width":N,"height":N,"weatherCode":"21","current":3,"total":12,"label":"阴-白天"}
  *   Data:   {"type":"data","index":N,"chunk":"<base64>"}
  *   End:    {"type":"end"}
  */
@@ -114,7 +117,10 @@ object ImageSyncManager {
         messageApi: MessageApi,
         nodeId: String,
         weatherCode: String,
-        bitmap: Bitmap
+        bitmap: Bitmap,
+        current: Int = 0,
+        total: Int = 0,
+        label: String = ""
     ): Result<Unit> {
         return try {
             // 压缩为 PNG
@@ -128,7 +134,7 @@ object ImageSyncManager {
             val height = bitmap.height
 
             // 1. 发送 header
-            sendHeader(messageApi, nodeId, totalSize, totalChunks, width, height, weatherCode)
+            sendHeader(messageApi, nodeId, totalSize, totalChunks, width, height, weatherCode, current, total, label)
 
             // 2. 发送数据块
             for (i in 0 until totalChunks) {
@@ -145,12 +151,60 @@ object ImageSyncManager {
                 sendMessageRaw(messageApi, nodeId, json.toString())
             }
 
-            // 3. 发送 end
-            val endJson = JSONObject().apply {
-                put("type", "end")
+            // 3. 先注册确认监听（避免手表回复早于监听注册），再发送 end
+            val latch = CompletableDeferred<Unit>()
+            val ackListener = OnMessageReceivedListener { _, message ->
+                try {
+                    val json = JSONObject(String(message))
+                    if (json.optString("type") == "image_saved"
+                        && json.optString("weatherCode") == weatherCode
+                    ) {
+                        latch.complete(Unit)
+                    }
+                } catch (_: Exception) { }
             }
-            sendMessageRaw(messageApi, nodeId, endJson.toString())
+            messageApi.addListener(nodeId, ackListener)
+            try {
+                val endJson = JSONObject().apply { put("type", "end") }
+                sendMessageRaw(messageApi, nodeId, endJson.toString())
 
+                // 4. 等待手表确认（超时 30 秒）
+                withTimeout(30_000) { latch.await() }
+            } finally {
+                messageApi.removeListener(nodeId)
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * 通知手表清除所有自定义背景图
+     */
+    suspend fun clearAllOnWatch(
+        messageApi: MessageApi,
+        nodeId: String
+    ): Result<Unit> {
+        return try {
+            val latch = CompletableDeferred<Unit>()
+            val listener = OnMessageReceivedListener { _, message ->
+                try {
+                    val json = JSONObject(String(message))
+                    if (json.optString("type") == "clear_done") {
+                        latch.complete(Unit)
+                    }
+                } catch (_: Exception) { }
+            }
+            messageApi.addListener(nodeId, listener)
+            try {
+                val json = JSONObject().apply { put("type", "clear_all") }
+                sendMessageRaw(messageApi, nodeId, json.toString())
+                withTimeout(30_000) { latch.await() }
+            } finally {
+                messageApi.removeListener(nodeId)
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -177,7 +231,7 @@ object ImageSyncManager {
         val total = configured.size
 
         for ((index, pair) in configured.withIndex()) {
-            val (code, _) = pair
+            val (code, label) = pair
             onProgress?.invoke(index + 1, total, code)
 
             try {
@@ -185,7 +239,7 @@ object ImageSyncManager {
                 val bitmap = withContext(Dispatchers.IO) { decodeAndScale(context, uri) }
                     ?: continue
 
-                val result = sendImage(messageApi, nodeId, code, bitmap)
+                val result = sendImage(messageApi, nodeId, code, bitmap, index + 1, total, label)
                 if (result.isSuccess) {
                     successCount++
                 } else {
@@ -242,7 +296,10 @@ object ImageSyncManager {
         totalChunks: Int,
         width: Int,
         height: Int,
-        weatherCode: String
+        weatherCode: String,
+        current: Int,
+        total: Int,
+        label: String
     ) {
         val json = JSONObject().apply {
             put("type", "header")
@@ -252,6 +309,9 @@ object ImageSyncManager {
             put("width", width)
             put("height", height)
             put("weatherCode", weatherCode)
+            put("current", current)
+            put("total", total)
+            put("label", label)
         }
         sendMessageRaw(messageApi, nodeId, json.toString())
     }

@@ -11,7 +11,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
@@ -41,6 +44,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.application.zaona.weather.service.ImageSyncManager
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import com.xiaomi.xms.wearable.Wearable
@@ -57,6 +61,7 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.FabPosition
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
@@ -128,6 +133,80 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 val showMessageDialog = remember { mutableStateOf(false) }
                 var messageDialogTitle by remember { mutableStateOf("") }
                 var messageDialogSummary by remember { mutableStateOf("") }
+                val showClearConfirmDialog = remember { mutableStateOf(false) }
+
+                fun performClear() {
+                    if (isSyncing) return
+                    isSyncing = true
+                    showLoadingDialog.value = true
+                    loadingDialogTitle = "正在清除"
+                    loadingDialogSummary = "正在连接到手表..."
+
+                    nodeApi.connectedNodes.addOnSuccessListener { nodes ->
+                        val node = nodes.firstOrNull()
+                        if (node == null) {
+                            showLoadingDialog.value = false
+                            isSyncing = false
+                            Toast.makeText(context, "未连接手表", Toast.LENGTH_SHORT).show()
+                            return@addOnSuccessListener
+                        }
+
+                        val permissions = arrayOf(Permission.DEVICE_MANAGER, Permission.NOTIFY)
+                        authApi.checkPermissions(node.id, permissions).addOnSuccessListener { results ->
+                            if (!results.all { it }) {
+                                authApi.requestPermission(node.id, *permissions)
+                            }
+
+                            scope.launch {
+                                try {
+                                    loadingDialogSummary = "正在检查手表应用安装状态..."
+                                    val isInstalled = checkWatchAppInstalled(nodeApi, node.id)
+                                    if (!isInstalled) {
+                                        showLoadingDialog.value = false
+                                        isSyncing = false
+                                        Toast.makeText(context, "手表端未安装应用，请先安装", Toast.LENGTH_SHORT).show()
+                                        return@launch
+                                    }
+
+                                    val prefs = context.getSharedPreferences("weather_prefs", android.content.Context.MODE_PRIVATE)
+                                    val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
+                                    if (advancedSyncMode) {
+                                        loadingDialogSummary = "正在启动应用并握手..."
+                                        performWatchHandshake(nodeApi, messageApi, node.id)
+                                        delay(160)
+                                    }
+
+                                    loadingDialogSummary = "正在清除手表端自定义背景图..."
+                                    val result = ImageSyncManager.clearAllOnWatch(messageApi, node.id)
+                                    showLoadingDialog.value = false
+                                    isSyncing = false
+                                    if (result.isSuccess) {
+                                        messageDialogTitle = "清除完成"
+                                        messageDialogSummary = "手表端自定义背景图已全部清除"
+                                    } else {
+                                        messageDialogTitle = "清除失败"
+                                        messageDialogSummary = result.exceptionOrNull()?.message ?: "未知错误"
+                                    }
+                                    showMessageDialog.value = true
+                                } catch (e: Exception) {
+                                    showLoadingDialog.value = false
+                                    isSyncing = false
+                                    messageDialogTitle = "清除失败"
+                                    messageDialogSummary = e.message ?: "未知错误"
+                                    showMessageDialog.value = true
+                                }
+                            }
+                        }.addOnFailureListener {
+                            showLoadingDialog.value = false
+                            isSyncing = false
+                            Toast.makeText(context, "权限检查失败", Toast.LENGTH_SHORT).show()
+                        }
+                    }.addOnFailureListener {
+                        showLoadingDialog.value = false
+                        isSyncing = false
+                        Toast.makeText(context, "获取设备失败", Toast.LENGTH_SHORT).show()
+                    }
+                }
 
                 fun performSync() {
                     if (isSyncing) return
@@ -157,7 +236,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     if (count == 0) {
                                         showLoadingDialog.value = false
                                         isSyncing = false
-                                        Toast.makeText(context, "请先选择自定义背景图", Toast.LENGTH_SHORT).show()
+                                        showClearConfirmDialog.value = true
                                         return@launch
                                     }
 
@@ -278,14 +357,49 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         show = showLoadingDialog.value,
                         onDismissRequest = { }
                     ) {
-                        Box(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            contentAlignment = Alignment.Center
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             InfiniteProgressIndicator(
                                 modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "同步期间请勿操作手表与手机",
+                                fontSize = 14.sp,
+                                color = MiuixTheme.colorScheme.error
+                            )
+                        }
+                    }
+
+                    OverlayDialog(
+                        title = "确认清除",
+                        summary = "当前没有选择任何背景图，继续同步将会删除手表上已存储的所有自定义背景图。确定继续吗？",
+                        show = showClearConfirmDialog.value,
+                        onDismissRequest = { showClearConfirmDialog.value = false }
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            TextButton(
+                                text = "取消",
+                                onClick = { showClearConfirmDialog.value = false },
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                text = "确认",
+                                onClick = {
+                                    showClearConfirmDialog.value = false
+                                    performClear()
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.textButtonColors(
+                                    textColor = MiuixTheme.colorScheme.error
+                                )
                             )
                         }
                     }
