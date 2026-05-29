@@ -127,10 +127,14 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     contract = ActivityResultContracts.GetContent()
                 ) { uri: Uri? ->
                     if (uri != null && selectedCode != null) {
-                        context.contentResolver.takePersistableUriPermission(
-                            uri,
-                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        )
+                        try {
+                            context.contentResolver.takePersistableUriPermission(
+                                uri,
+                                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            )
+                        } catch (_: SecurityException) {
+                            // 部分设备不支持持久化权限，忽略错误继续
+                        }
                         val code = selectedCode!!
                         val path = uri.toString()
                         ImageSyncManager.setImagePath(code, path)
