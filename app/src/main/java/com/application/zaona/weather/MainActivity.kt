@@ -72,6 +72,7 @@ import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -83,6 +84,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.extended.Theme
 import top.yukonga.miuix.kmp.icon.extended.Update
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -120,6 +122,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 
 import com.application.zaona.weather.service.DeviceReportService
+import com.application.zaona.weather.service.ImageSyncManager
 
 class MainActivity : ComponentActivity() {
     private data class WatchInfoPayload(
@@ -141,6 +144,7 @@ class MainActivity : ComponentActivity() {
         
         // Initialize device reporting service
         DeviceReportService.init(applicationContext)
+        ImageSyncManager.init(applicationContext)
         
         val config = ClarityConfig(
             projectId = "v9ht6u2tnu",
@@ -295,6 +299,18 @@ class MainActivity : ComponentActivity() {
                                 color = topBarColor,
                                 scrollBehavior = scrollBehavior,
                                 actions = {
+                                    IconButton(
+                                        onClick = {
+                                            val intent = Intent(context, BackgroundImagePickerActivity::class.java)
+                                            context.startActivity(intent)
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = MiuixIcons.Theme,
+                                            contentDescription = "主题"
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     IconButton(
                                         onClick = {
                                             val intent = Intent(context, SettingsActivity::class.java)

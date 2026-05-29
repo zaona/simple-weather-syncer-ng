@@ -49,6 +49,11 @@
             android:exported="false"
             android:label="设置"
             android:theme="@style/Theme.Simpleweathersyncerng" />
+        <activity
+            android:name=".BackgroundImagePickerActivity"
+            android:exported="false"
+            android:label="自定义背景图"
+            android:theme="@style/Theme.Simpleweathersyncerng" />
     </application>
 
 </manifest>
