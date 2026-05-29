@@ -84,6 +84,7 @@ import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Background
 import top.yukonga.miuix.kmp.icon.extended.Create
+import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Send
@@ -116,6 +117,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 val prefs = remember { context.getSharedPreferences("weather_prefs", android.content.Context.MODE_PRIVATE) }
                 var darkenStrength by remember { mutableStateOf(prefs.getInt("bg_darken_strength", 0)) }
                 var blurRadius by remember { mutableStateOf(prefs.getInt("bg_blur_radius", 0)) }
+                var quality by remember { mutableStateOf(prefs.getInt("bg_quality", 100)) }
 
                 val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
                 val messageApi = remember { Wearable.getMessageApi(context.applicationContext) }
@@ -403,6 +405,34 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         },
                                         valueRange = 0f..25f
                                     )
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                    // 画质滑块
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            MiuixIcons.Heavy.Tune,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = "画质",
+                                            style = MiuixTheme.textStyles.body1
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Slider(
+                                        value = quality.toFloat(),
+                                        onValueChange = { quality = it.toInt() },
+                                        onValueChangeFinished = {
+                                            prefs.edit().putInt("bg_quality", quality).apply()
+                                        },
+                                        valueRange = 10f..100f
+                                    )
                                 }
                             }
                         }
@@ -426,6 +456,10 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     blurRadius = blurRadius
                                 )
                             }
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(72.dp))
                         }
                     }
 
@@ -607,12 +641,7 @@ private fun BackgroundImageItem(
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
-                    } else if (hasImage) {
-                        Text(
-                            text = "...",
-                            color = Color(0xFF4CAF50)
-                        )
-                    } else {
+                    } else if (!hasImage) {
                         Icon(
                             imageVector = MiuixIcons.Backup,
                             contentDescription = "默认",

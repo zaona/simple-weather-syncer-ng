@@ -146,12 +146,21 @@ object ImageSyncManager {
         bitmap: Bitmap,
         current: Int = 0,
         total: Int = 0,
-        label: String = ""
+        label: String = "",
+        quality: Int = 85
     ): Result<Unit> {
         return try {
-            // 压缩为 PNG
+            // 低画质时降色深到 RGB_565 以减小 PNG 体积
+            val compressedBitmap = if (quality < 100) {
+                val rgb565 = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.RGB_565)
+                val canvas = android.graphics.Canvas(rgb565)
+                canvas.drawBitmap(bitmap, 0f, 0f, null)
+                rgb565
+            } else {
+                bitmap
+            }
             val baos = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+            compressedBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
             val data = baos.toByteArray()
 
             val totalSize = data.size
@@ -254,6 +263,7 @@ object ImageSyncManager {
         val imagePrefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
         val darkenStrength = imagePrefs.getInt("bg_darken_strength", 0)
         val blurRadius = imagePrefs.getInt("bg_blur_radius", 0)
+        val quality = imagePrefs.getInt("bg_quality", 85)
 
         val configured = WEATHER_BG_CODES.filter { (code, _) ->
             getImagePath(code) != null
@@ -270,7 +280,7 @@ object ImageSyncManager {
                     decodeAndScale(context, uri, darkenStrength, blurRadius)
                 } ?: continue
 
-                val result = sendImage(messageApi, nodeId, code, bitmap, index + 1, total, label)
+                val result = sendImage(messageApi, nodeId, code, bitmap, index + 1, total, label, quality)
                 if (result.isSuccess) {
                     successCount++
                 } else {
