@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
+import com.application.zaona.weather.util.ImageProcessingUtil
 import com.xiaomi.xms.wearable.message.MessageApi
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
 import kotlinx.coroutines.CompletableDeferred
@@ -83,7 +84,12 @@ object ImageSyncManager {
     /**
      * 从 URI 读取并缩放图片到目标尺寸（阻塞 I/O，调用方应切换到 IO 线程）
      */
-    private fun decodeAndScale(context: Context, uri: Uri): Bitmap? {
+    private fun decodeAndScale(
+        context: Context,
+        uri: Uri,
+        darkenStrength: Int = 0,
+        blurRadius: Int = 0
+    ): Bitmap? {
         return try {
             val options = BitmapFactory.Options().apply {
                 inJustDecodeBounds = true
@@ -104,10 +110,30 @@ object ImageSyncManager {
                 BitmapFactory.decodeStream(it, null, decodeOptions)
             } ?: return null
 
-            scaleBitmapIfNeeded(bitmap)
+            val scaled = scaleBitmapIfNeeded(bitmap)
+
+            applyImageEffects(scaled, darkenStrength, blurRadius)
         } catch (e: Exception) {
             null
         }
+    }
+
+    /**
+     * 对缩放后的图片应用压暗和模糊效果（先模糊后压暗）
+     */
+    private fun applyImageEffects(
+        bitmap: Bitmap,
+        darkenStrength: Int,
+        blurRadius: Int
+    ): Bitmap {
+        var result = bitmap
+        if (blurRadius > 0) {
+            result = ImageProcessingUtil.applyBlur(result, blurRadius)
+        }
+        if (darkenStrength > 0) {
+            result = ImageProcessingUtil.applyDarken(result, darkenStrength)
+        }
+        return result
     }
 
     /**
@@ -225,6 +251,10 @@ object ImageSyncManager {
         var successCount = 0
         var errorCount = 0
 
+        val imagePrefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+        val darkenStrength = imagePrefs.getInt("bg_darken_strength", 0)
+        val blurRadius = imagePrefs.getInt("bg_blur_radius", 0)
+
         val configured = WEATHER_BG_CODES.filter { (code, _) ->
             getImagePath(code) != null
         }
@@ -236,8 +266,9 @@ object ImageSyncManager {
 
             try {
                 val uri = Uri.parse(getImagePath(code)!!)
-                val bitmap = withContext(Dispatchers.IO) { decodeAndScale(context, uri) }
-                    ?: continue
+                val bitmap = withContext(Dispatchers.IO) {
+                    decodeAndScale(context, uri, darkenStrength, blurRadius)
+                } ?: continue
 
                 val result = sendImage(messageApi, nodeId, code, bitmap, index + 1, total, label)
                 if (result.isSuccess) {

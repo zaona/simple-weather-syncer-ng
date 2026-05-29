@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.application.zaona.weather.service.ImageSyncManager
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
+import com.application.zaona.weather.util.ImageProcessingUtil
 import com.xiaomi.xms.wearable.Wearable
 import com.xiaomi.xms.wearable.auth.AuthApi
 import com.xiaomi.xms.wearable.auth.Permission
@@ -63,6 +65,7 @@ import kotlin.coroutines.resumeWithException
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.FabPosition
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.Icon
@@ -79,6 +82,8 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Background
+import top.yukonga.miuix.kmp.icon.extended.Create
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Send
@@ -107,6 +112,10 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     map
                 }
                 val configuredCount = imagePaths.values.count { it != null }
+
+                val prefs = remember { context.getSharedPreferences("weather_prefs", android.content.Context.MODE_PRIVATE) }
+                var darkenStrength by remember { mutableStateOf(prefs.getInt("bg_darken_strength", 0)) }
+                var blurRadius by remember { mutableStateOf(prefs.getInt("bg_blur_radius", 0)) }
 
                 val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
                 val messageApi = remember { Wearable.getMessageApi(context.applicationContext) }
@@ -331,6 +340,73 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             SmallTitle(text = "已配置 $configuredCount/12 张背景图")
                         }
 
+                        // 图片处理卡片
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    // 压暗滑块
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            MiuixIcons.Heavy.Background,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = "压暗",
+                                            style = MiuixTheme.textStyles.body1
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Slider(
+                                        value = darkenStrength.toFloat(),
+                                        onValueChange = { darkenStrength = it.toInt() },
+                                        onValueChangeFinished = {
+                                            prefs.edit().putInt("bg_darken_strength", darkenStrength).apply()
+                                        },
+                                        valueRange = 0f..100f
+                                    )
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                    // 模糊滑块
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            MiuixIcons.Heavy.Create,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = "模糊",
+                                            style = MiuixTheme.textStyles.body1
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Slider(
+                                        value = blurRadius.toFloat(),
+                                        onValueChange = { blurRadius = it.toInt() },
+                                        onValueChangeFinished = {
+                                            prefs.edit().putInt("bg_blur_radius", blurRadius).apply()
+                                        },
+                                        valueRange = 0f..25f
+                                    )
+                                }
+                            }
+                        }
+
                         ImageSyncManager.WEATHER_BG_CODES.forEach { (code, label) ->
                             item {
                                 val imagePath = imagePaths[code]
@@ -345,7 +421,9 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     onClear = {
                                         ImageSyncManager.removeImagePath(code)
                                         imagePaths[code] = null
-                                    }
+                                    },
+                                    darkenStrength = darkenStrength,
+                                    blurRadius = blurRadius
                                 )
                             }
                         }
@@ -466,7 +544,9 @@ private fun BackgroundImageItem(
     label: String,
     imagePath: String?,
     onSelect: () -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    darkenStrength: Int = 0,
+    blurRadius: Int = 0
 ) {
     val hasImage = imagePath != null
     val context = LocalContext.current
@@ -483,7 +563,7 @@ private fun BackgroundImageItem(
         } catch (_: Exception) { null }
     }
 
-    LaunchedEffect(imagePath) {
+    LaunchedEffect(imagePath, darkenStrength, blurRadius) {
         if (imagePath == null) {
             thumbnail = null
             return@LaunchedEffect
@@ -493,7 +573,11 @@ private fun BackgroundImageItem(
                 val uri = Uri.parse(imagePath)
                 context.contentResolver.openInputStream(uri)?.use { stream ->
                     val opts = BitmapFactory.Options().apply { inSampleSize = 4 }
-                    BitmapFactory.decodeStream(stream, null, opts)?.asImageBitmap()
+                    val bmp = BitmapFactory.decodeStream(stream, null, opts) ?: return@withContext null
+                    var processed = bmp
+                    if (blurRadius > 0) processed = ImageProcessingUtil.applyBlur(processed, blurRadius)
+                    if (darkenStrength > 0) processed = ImageProcessingUtil.applyDarken(processed, darkenStrength)
+                    processed.asImageBitmap()
                 }
             } catch (_: Exception) { null }
         }
