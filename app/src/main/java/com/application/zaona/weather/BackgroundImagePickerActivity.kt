@@ -183,7 +183,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 ) { uri: Uri? ->
                     if (uri != null) {
                         scope.launch {
-                            loadingMessage = "正在解析预设包..."
+                            loadingMessage = "正在解析预设包"
                             showLoadingDialog = true
                             val result = BackgroundPresetManager.peekImportInfo(context, uri)
                             showLoadingDialog = false
@@ -205,7 +205,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 ) { uri: Uri? ->
                     if (uri != null) {
                         scope.launch {
-                            loadingMessage = "正在导出预设包..."
+                            loadingMessage = "正在导出预设包"
                             showLoadingDialog = true
                             try {
                                 val outFile = java.io.File(
@@ -335,7 +335,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             val result = ImageSyncManager.clearAllOnWatch(messageApi, node.id)
                             if (result.isSuccess) {
                                 syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
-                                syncResultSummary = "手表端自定义背景图已全部清除"
+                                syncResultSummary = "已清除所有自定义背景图"
                             } else {
                                 syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                                 syncResultSummary = result.exceptionOrNull()?.message ?: "未知错误"
@@ -513,7 +513,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         return
                     }
                     scope.launch {
-                        loadingMessage = "正在准备分享..."
+                        loadingMessage = "正在准备分享"
                         showLoadingDialog = true
                         val result = BackgroundPresetManager.prepareShareFile(context)
                         showLoadingDialog = false
@@ -537,7 +537,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 fun performConfirmedImport() {
                     val uri = pendingImportUri ?: return
                     scope.launch {
-                        loadingMessage = "正在导入预设包..."
+                        loadingMessage = "正在导入预设包"
                         showLoadingDialog = true
                         val result = BackgroundPresetManager.performImport(context, uri)
                         showLoadingDialog = false
@@ -897,16 +897,14 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         show = showLoadingDialog,
                         onDismissRequest = { /* 阻塞关闭 */ }
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(
-                                size = 32.dp,
-                                strokeWidth = 3.dp,
-                                colors = ProgressIndicatorDefaults.progressIndicatorColors(
-                                    foregroundColor = MiuixTheme.colorScheme.primary
-                                )
+                            InfiniteProgressIndicator(
+                                modifier = Modifier.size(40.dp)
                             )
                         }
                     }

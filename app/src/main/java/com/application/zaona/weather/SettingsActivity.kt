@@ -303,18 +303,17 @@ class SettingsActivity : ComponentActivity() {
                     if (updateDownloadUrl != null) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if (!isForceUpdate) {
-                                Button(
+                                TextButton(
+                                    text = "取消",
                                     modifier = Modifier.weight(1f),
-                                    onClick = { showUpdateDialog.value = false },
-                                    colors = ButtonDefaults.buttonColors()
-                                ) {
-                                    Text("取消")
-                                }
+                                    onClick = { showUpdateDialog.value = false }
+                                )
                             }
-                            Button(
+                            TextButton(
+                                text = if (isForceUpdate) "立即更新" else "前往下载",
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateDownloadUrl!!))
@@ -323,10 +322,8 @@ class SettingsActivity : ComponentActivity() {
                                         showUpdateDialog.value = false
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColorsPrimary()
-                            ) {
-                                Text(if (isForceUpdate) "立即更新" else "前往下载", color = Color.White)
-                            }
+                                colors = ButtonDefaults.textButtonColorsPrimary()
+                            )
                         }
                     } else {
                         TextButton(

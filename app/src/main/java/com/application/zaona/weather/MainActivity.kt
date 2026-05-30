@@ -777,7 +777,7 @@ class MainActivity : ComponentActivity() {
                                                         return@launch
                                                     }
                                                 } catch (e: Exception) {
-                                                     showMessageDialog("检查失败", "检查应用安装状态失败: ${e.message}")
+                                                     showMessageDialog("检查失败", e.message ?: "未知错误")
                                                      return@launch
                                                 }
 
@@ -876,23 +876,21 @@ class MainActivity : ComponentActivity() {
                                         show = showDeviceActionDialog.value,
                                         onDismissRequest = { showDeviceActionDialog.value = false }
                                     ) {
-                                        Button(
+                                        TextButton(
+                                            text = "检查手表端更新",
                                             modifier = Modifier.fillMaxWidth(),
                                             onClick = { checkWatchUpdate() },
-                                            colors = ButtonDefaults.buttonColorsPrimary()
-                                        ) {
-                                            Text("检查手表端更新", color = Color.White)
-                                        }
+                                            colors = ButtonDefaults.textButtonColorsPrimary()
+                                        )
 
                                         Spacer(modifier = Modifier.height(12.dp))
 
-                                        Button(
+                                        TextButton(
+                                            text = "检查手表存储空间",
                                             modifier = Modifier.fillMaxWidth(),
                                             onClick = { checkWatchStorage() },
-                                            colors = ButtonDefaults.buttonColorsPrimary()
-                                        ) {
-                                            Text("检查手表存储空间", color = Color.White)
-                                        }
+                                            colors = ButtonDefaults.textButtonColorsPrimary()
+                                        )
                                     }
 
                                     WindowDialog(
@@ -953,14 +951,13 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Button(
+                        TextButton(
+                            text = "关闭",
                             modifier = Modifier.weight(1f),
-                            onClick = { showWeatherDataDialog.value = false },
-                            colors = ButtonDefaults.buttonColors()
-                        ) {
-                            Text("关闭")
-                        }
-                        Button(
+                            onClick = { showWeatherDataDialog.value = false }
+                        )
+                        TextButton(
+                            text = "复制",
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -970,10 +967,8 @@ class MainActivity : ComponentActivity() {
 
                                 showMessageDialog("复制成功", "天气数据已复制到剪贴板")
                             },
-                            colors = ButtonDefaults.buttonColorsPrimary()
-                        ) {
-                            Text("复制", color = Color.White)
-                        }
+                            colors = ButtonDefaults.textButtonColorsPrimary()
+                        )
                     }
                 }
 
@@ -990,18 +985,17 @@ class MainActivity : ComponentActivity() {
                     if (updateDownloadUrl != null) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if (!isForceUpdate) {
-                                Button(
+                                TextButton(
+                                    text = "取消",
                                     modifier = Modifier.weight(1f),
-                                    onClick = { showUpdateDialog.value = false },
-                                    colors = ButtonDefaults.buttonColors()
-                                ) {
-                                    Text("取消")
-                                }
+                                    onClick = { showUpdateDialog.value = false }
+                                )
                             }
-                            Button(
+                            TextButton(
+                                text = if (isForceUpdate) "立即更新" else "前往下载",
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateDownloadUrl!!))
@@ -1010,10 +1004,8 @@ class MainActivity : ComponentActivity() {
                                         showUpdateDialog.value = false
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColorsPrimary()
-                            ) {
-                                Text(if (isForceUpdate) "立即更新" else "前往下载", color = Color.White)
-                            }
+                                colors = ButtonDefaults.textButtonColorsPrimary()
+                            )
                         }
                     } else {
                         TextButton(
@@ -1037,18 +1029,17 @@ class MainActivity : ComponentActivity() {
                     if (watchUpdateDownloadUrl != null) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if (!watchIsForceUpdate) {
-                                Button(
+                                TextButton(
+                                    text = "取消",
                                     modifier = Modifier.weight(1f),
-                                    onClick = { showWatchUpdateDialog.value = false },
-                                    colors = ButtonDefaults.buttonColors()
-                                ) {
-                                    Text("取消")
-                                }
+                                    onClick = { showWatchUpdateDialog.value = false }
+                                )
                             }
-                            Button(
+                            TextButton(
+                                text = if (watchIsForceUpdate) "立即更新" else "前往下载",
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(watchUpdateDownloadUrl!!))
@@ -1057,10 +1048,8 @@ class MainActivity : ComponentActivity() {
                                         showWatchUpdateDialog.value = false
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColorsPrimary()
-                            ) {
-                                Text(if (watchIsForceUpdate) "立即更新" else "前往下载", color = Color.White)
-                            }
+                                colors = ButtonDefaults.textButtonColorsPrimary()
+                            )
                         }
                     } else {
                         TextButton(
