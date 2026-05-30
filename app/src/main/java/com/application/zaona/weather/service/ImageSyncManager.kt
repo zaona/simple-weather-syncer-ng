@@ -147,7 +147,8 @@ object ImageSyncManager {
         current: Int = 0,
         total: Int = 0,
         label: String = "",
-        quality: Int = 85
+        quality: Int = 85,
+        onChunkProgress: ((sent: Int, totalChunks: Int) -> Unit)? = null
     ): Result<Unit> {
         return try {
             // 低画质时降色深到 RGB_565 以减小 PNG 体积
@@ -184,6 +185,7 @@ object ImageSyncManager {
                     put("chunk", base64Chunk)
                 }
                 sendMessageRaw(messageApi, nodeId, json.toString())
+                onChunkProgress?.invoke(i + 1, totalChunks)
             }
 
             // 3. 先注册确认监听（避免手表回复早于监听注册），再发送 end
@@ -255,7 +257,9 @@ object ImageSyncManager {
         context: Context,
         messageApi: MessageApi,
         nodeId: String,
-        onProgress: ((current: Int, total: Int, weatherCode: String) -> Unit)? = null
+        onProgress: ((current: Int, total: Int, weatherCode: String) -> Unit)? = null,
+        onImageSent: ((weatherCode: String, success: Boolean) -> Unit)? = null,
+        onChunkProgress: ((sent: Int, totalChunks: Int) -> Unit)? = null
     ): Result<Int> {
         var successCount = 0
         var errorCount = 0
@@ -280,14 +284,17 @@ object ImageSyncManager {
                     decodeAndScale(context, uri, darkenStrength, blurRadius)
                 } ?: continue
 
-                val result = sendImage(messageApi, nodeId, code, bitmap, index + 1, total, label, quality)
+                val result = sendImage(messageApi, nodeId, code, bitmap, index + 1, total, label, quality, onChunkProgress)
                 if (result.isSuccess) {
                     successCount++
+                    onImageSent?.invoke(code, true)
                 } else {
                     errorCount++
+                    onImageSent?.invoke(code, false)
                 }
             } catch (e: Exception) {
                 errorCount++
+                onImageSent?.invoke(code, false)
             }
         }
 
