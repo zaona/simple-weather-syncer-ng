@@ -57,10 +57,12 @@ import com.xiaomi.xms.wearable.Wearable
 import com.xiaomi.xms.wearable.auth.AuthApi
 import com.xiaomi.xms.wearable.auth.Permission
 import com.xiaomi.xms.wearable.message.MessageApi
+import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
 import com.xiaomi.xms.wearable.node.Node
 import com.xiaomi.xms.wearable.node.NodeApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -173,60 +175,96 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 fun performClear() {
                     if (isSyncing) return
                     isSyncing = true
-                    syncSteps.clear()
-                    syncSteps.addAll(listOf(
+
+                    val advancedMode = prefs.getBoolean("advanced_sync_mode", true)
+                    val preambleSteps = mutableListOf(
                         SyncStep("连接手表"),
-                        SyncStep("检查权限"),
-                        SyncStep("清除自定义背景图")
-                    ))
+                        SyncStep("检查应用安装")
+                    )
+                    if (advancedMode) {
+                        preambleSteps.add(SyncStep("启动应用并握手"))
+                    }
+                    preambleSteps.add(SyncStep("检查权限"))
+                    preambleSteps.add(SyncStep("清除自定义背景图"))
+                    val preambleCount = preambleSteps.size
+
+                    syncSteps.clear()
+                    syncSteps.addAll(preambleSteps)
                     syncFinished = false
                     syncResultSummary = ""
                     syncSheetTitle = "正在清除"
                     showSyncSheet.value = true
 
                     syncJob = scope.launch {
-                        // Step 1: 连接
-                        syncSteps[0] = syncSteps[0].copy(status = StepStatus.IN_PROGRESS)
+                        var stepIdx = 0
                         try {
+                            // Step: 连接
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
                             val nodes = withTimeout(10_000) { getConnectedNodes(nodeApi) }
                             val node = nodes.firstOrNull()
                             if (node == null) {
-                                syncSteps[0] = syncSteps[0].copy(status = StepStatus.ERROR)
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                                 syncResultSummary = "未连接手表"
                                 syncFinished = true; isSyncing = false; return@launch
                             }
-                            syncSteps[0] = syncSteps[0].copy(status = StepStatus.DONE)
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
+                            stepIdx++
 
-                            // Step 2: 权限
-                            syncSteps[1] = syncSteps[1].copy(status = StepStatus.IN_PROGRESS)
+                            // Step: 检查应用安装
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
+                            val isInstalled = checkWatchAppInstalled(nodeApi, node.id)
+                            if (!isInstalled) {
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
+                                syncResultSummary = "手表端未安装应用，请先安装"
+                                syncFinished = true; isSyncing = false; return@launch
+                            }
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
+                            stepIdx++
+
+                            // Step: 握手 (if advanced)
+                            if (advancedMode) {
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
+                                try {
+                                    performWatchHandshake(nodeApi, messageApi, node.id)
+                                    syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
+                                } catch (e: Exception) {
+                                    syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
+                                    syncResultSummary = "握手失败: ${e.message}"
+                                    syncFinished = true; isSyncing = false; return@launch
+                                }
+                                stepIdx++
+                            }
+
+                            // Step: 权限
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
                             val granted = suspendCancellableCoroutine { cont ->
                                 checkAndRequestPermission(authApi, node.id) { cont.resume(it) }
                             }
                             if (!granted) {
-                                syncSteps[1] = syncSteps[1].copy(status = StepStatus.ERROR)
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                                 syncResultSummary = "权限被拒绝"
                                 syncFinished = true; isSyncing = false; return@launch
                             }
-                            syncSteps[1] = syncSteps[1].copy(status = StepStatus.DONE)
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
+                            stepIdx++
 
-                            // Step 3: 清除
-                            syncSteps[2] = syncSteps[2].copy(status = StepStatus.IN_PROGRESS)
+                            // Step: 清除
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
                             val result = ImageSyncManager.clearAllOnWatch(messageApi, node.id)
                             if (result.isSuccess) {
-                                syncSteps[2] = syncSteps[2].copy(status = StepStatus.DONE)
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
                                 syncResultSummary = "手表端自定义背景图已全部清除"
                             } else {
-                                syncSteps[2] = syncSteps[2].copy(status = StepStatus.ERROR)
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                                 syncResultSummary = result.exceptionOrNull()?.message ?: "未知错误"
                             }
                             syncFinished = true; isSyncing = false
                         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                            syncSteps[0] = syncSteps[0].copy(status = StepStatus.ERROR)
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                             syncResultSummary = "连接手表超时"
                             syncFinished = true; isSyncing = false
                         } catch (e: Exception) {
-                            val idx = syncSteps.indexOfFirst { it.status == StepStatus.IN_PROGRESS }
-                            if (idx >= 0) syncSteps[idx] = syncSteps[idx].copy(status = StepStatus.ERROR)
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                             syncResultSummary = e.message ?: "未知错误"
                             syncFinished = true; isSyncing = false
                         }
@@ -244,11 +282,19 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     }
 
                     isSyncing = true
-                    syncSteps.clear()
-                    syncSteps.addAll(listOf(
+                    val advancedMode = prefs.getBoolean("advanced_sync_mode", true)
+                    val preambleSteps = mutableListOf(
                         SyncStep("连接手表"),
-                        SyncStep("检查权限")
-                    ))
+                        SyncStep("检查应用安装")
+                    )
+                    if (advancedMode) {
+                        preambleSteps.add(SyncStep("启动应用并握手"))
+                    }
+                    preambleSteps.add(SyncStep("检查权限"))
+                    val preambleCount = preambleSteps.size
+
+                    syncSteps.clear()
+                    syncSteps.addAll(preambleSteps)
                     // 为每张已配置的图片添加步骤
                     configuredCodes.forEach { (_, label) ->
                         syncSteps.add(SyncStep(label))
@@ -257,38 +303,65 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     syncResultSummary = ""
                     syncSheetTitle = "同步自定义背景图"
                     showSyncSheet.value = true
-                    val fixedSteps = 2  // 连接 + 权限
 
                     syncJob = scope.launch {
-                        // Step 1: 连接
-                        syncSteps[0] = syncSteps[0].copy(status = StepStatus.IN_PROGRESS)
+                        var stepIdx = 0
                         try {
+                            // Step: 连接
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
                             val nodes = withTimeout(10_000) { getConnectedNodes(nodeApi) }
                             val node = nodes.firstOrNull()
                             if (node == null) {
-                                syncSteps[0] = syncSteps[0].copy(status = StepStatus.ERROR)
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                                 syncResultSummary = "未连接手表"
                                 syncFinished = true; isSyncing = false; return@launch
                             }
-                            syncSteps[0] = syncSteps[0].copy(status = StepStatus.DONE)
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
+                            stepIdx++
 
-                            // Step 2: 权限
-                            syncSteps[1] = syncSteps[1].copy(status = StepStatus.IN_PROGRESS)
+                            // Step: 检查应用安装
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
+                            val isInstalled = checkWatchAppInstalled(nodeApi, node.id)
+                            if (!isInstalled) {
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
+                                syncResultSummary = "手表端未安装应用，请先安装"
+                                syncFinished = true; isSyncing = false; return@launch
+                            }
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
+                            stepIdx++
+
+                            // Step: 握手 (if advanced)
+                            if (advancedMode) {
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
+                                try {
+                                    performWatchHandshake(nodeApi, messageApi, node.id)
+                                    syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
+                                } catch (e: Exception) {
+                                    syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
+                                    syncResultSummary = "握手失败: ${e.message}"
+                                    syncFinished = true; isSyncing = false; return@launch
+                                }
+                                stepIdx++
+                            }
+
+                            // Step: 权限
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
                             val granted = suspendCancellableCoroutine { cont ->
                                 checkAndRequestPermission(authApi, node.id) { cont.resume(it) }
                             }
                             if (!granted) {
-                                syncSteps[1] = syncSteps[1].copy(status = StepStatus.ERROR)
+                                syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                                 syncResultSummary = "权限被拒绝"
                                 syncFinished = true; isSyncing = false; return@launch
                             }
-                            syncSteps[1] = syncSteps[1].copy(status = StepStatus.DONE)
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
+                            stepIdx++
 
-                            // Step 3+: 逐图同步
+                            // 逐图同步
                             val result = ImageSyncManager.syncAllImages(
                                 context, messageApi, node.id,
                                 onProgress = { current, _, _ ->
-                                    val idx = fixedSteps + current - 1
+                                    val idx = preambleCount + current - 1
                                     if (idx < syncSteps.size) {
                                         syncSteps[idx] = syncSteps[idx].copy(status = StepStatus.IN_PROGRESS)
                                     }
@@ -296,8 +369,8 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     syncProgressText = ""
                                 },
                                 onImageSent = { code, success ->
-                                    val idx = fixedSteps + configuredCodes.indexOfFirst { it.first == code }
-                                    if (idx in fixedSteps until syncSteps.size) {
+                                    val idx = preambleCount + configuredCodes.indexOfFirst { it.first == code }
+                                    if (idx in preambleCount until syncSteps.size) {
                                         syncSteps[idx] = syncSteps[idx].copy(
                                             status = if (success) StepStatus.DONE else StepStatus.ERROR
                                         )
@@ -317,12 +390,11 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             }
                             syncFinished = true; isSyncing = false
                         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                            syncSteps[0] = syncSteps[0].copy(status = StepStatus.ERROR)
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                             syncResultSummary = "连接手表超时"
                             syncFinished = true; isSyncing = false
                         } catch (e: Exception) {
-                            val idx = syncSteps.indexOfFirst { it.status == StepStatus.IN_PROGRESS }
-                            if (idx >= 0) syncSteps[idx] = syncSteps[idx].copy(status = StepStatus.ERROR)
+                            syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                             syncResultSummary = e.message ?: "未知错误"
                             syncFinished = true; isSyncing = false
                         }
@@ -670,6 +742,47 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 .addOnSuccessListener { nodes -> cont.resume(nodes) }
                 .addOnFailureListener { e -> cont.resumeWithException(e) }
         }
+
+    private suspend fun checkWatchAppInstalled(nodeApi: NodeApi, nodeId: String): Boolean =
+        suspendCancellableCoroutine { cont ->
+            nodeApi.isWearAppInstalled(nodeId)
+                .addOnSuccessListener { isInstalled -> cont.resume(isInstalled) }
+                .addOnFailureListener { e -> cont.resumeWithException(e) }
+        }
+
+    private suspend fun performWatchHandshake(
+        nodeApi: NodeApi,
+        messageApi: MessageApi,
+        nodeId: String
+    ) {
+        var isReady = false
+        val listener = OnMessageReceivedListener { _, message ->
+            if (String(message).contains("ready")) {
+                isReady = true
+            }
+        }
+
+        try {
+            messageApi.addListener(nodeId, listener)
+            nodeApi.launchWearApp(nodeId, "/home")
+
+            var attempts = 0
+            while (attempts < 5 && !isReady) {
+                attempts++
+                messageApi.sendMessage(nodeId, "start".toByteArray(Charsets.UTF_8))
+
+                repeat(20) {
+                    if (!isReady) Thread.sleep(50)
+                }
+            }
+        } finally {
+            messageApi.removeListener(nodeId)
+        }
+
+        if (!isReady) {
+            throw Exception("握手失败：设备未响应")
+        }
+    }
 }
 
 @Composable
