@@ -39,12 +39,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.PaddingValues
@@ -174,7 +176,6 @@ class BackgroundImagePickerActivity : ComponentActivity() {
 
                 fun performClear() {
                     if (isSyncing) return
-                    isSyncing = true
 
                     val advancedMode = prefs.getBoolean("advanced_sync_mode", true)
                     val preambleSteps = mutableListOf(
@@ -186,14 +187,20 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     }
                     preambleSteps.add(SyncStep("检查权限"))
                     preambleSteps.add(SyncStep("清除自定义背景图"))
-                    val preambleCount = preambleSteps.size
 
                     syncSteps.clear()
                     syncSteps.addAll(preambleSteps)
                     syncFinished = false
                     syncResultSummary = ""
-                    syncSheetTitle = "正在清除"
+                    syncSheetTitle = "清除自定义背景图"
                     showSyncSheet.value = true
+                }
+
+                fun startClear() {
+                    if (isSyncing) return
+                    isSyncing = true
+
+                    val advancedMode = prefs.getBoolean("advanced_sync_mode", true)
 
                     syncJob = scope.launch {
                         var stepIdx = 0
@@ -281,7 +288,6 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         return
                     }
 
-                    isSyncing = true
                     val advancedMode = prefs.getBoolean("advanced_sync_mode", true)
                     val preambleSteps = mutableListOf(
                         SyncStep("连接手表"),
@@ -291,7 +297,6 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         preambleSteps.add(SyncStep("启动应用并握手"))
                     }
                     preambleSteps.add(SyncStep("检查权限"))
-                    val preambleCount = preambleSteps.size
 
                     syncSteps.clear()
                     syncSteps.addAll(preambleSteps)
@@ -303,6 +308,16 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     syncResultSummary = ""
                     syncSheetTitle = "同步自定义背景图"
                     showSyncSheet.value = true
+                }
+
+                fun startSync() {
+                    if (isSyncing) return
+                    val configuredCodes = ImageSyncManager.WEATHER_BG_CODES.filter { (code, _) ->
+                        ImageSyncManager.getImagePath(code) != null
+                    }
+                    isSyncing = true
+                    val advancedMode = prefs.getBoolean("advanced_sync_mode", true)
+                    val preambleCount = if (advancedMode) 4 else 3 // 连接 + 安装 + [握手] + 权限
 
                     syncJob = scope.launch {
                         var stepIdx = 0
@@ -439,14 +454,13 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         item {
                             Spacer(modifier = Modifier.height(6.dp))
                             SmallTitle(text = "已配置 $configuredCount/12 张背景图")
-                        }
 
-                        // 图片处理卡片
-                        item {
+                            // 图片处理卡片
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                                    .padding(horizontal = 12.dp)
+                                    .padding(bottom = 12.dp)
                             ) {
                                 Column(
                                     modifier = Modifier.padding(16.dp)
@@ -478,7 +492,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         valueRange = 0f..100f
                                     )
 
-                                    Spacer(modifier = Modifier.height(20.dp))
+                                    Spacer(modifier = Modifier.height(24.dp))
 
                                     // 模糊滑块
                                     Row(
@@ -507,7 +521,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         valueRange = 0f..100f
                                     )
 
-                                    Spacer(modifier = Modifier.height(20.dp))
+                                    Spacer(modifier = Modifier.height(24.dp))
 
                                     // 画质滑块
                                     Row(
@@ -560,7 +574,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         }
 
                         item {
-                            Spacer(modifier = Modifier.height(72.dp))
+                            Spacer(modifier = Modifier.height(96.dp))
                         }
                     }
 
@@ -568,16 +582,19 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     OverlayBottomSheet(
                         show = showSyncSheet.value,
                         title = syncSheetTitle,
-                        allowDismiss = syncFinished,
-                        onDismissRequest = { if (syncFinished) showSyncSheet.value = false }
+                        allowDismiss = syncFinished || !isSyncing,
+                        onDismissRequest = { if (syncFinished || !isSyncing) showSyncSheet.value = false },
+                        enableNestedScroll = false,
+                        insideMargin = DpSize.Zero
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .verticalScroll(rememberScrollState())
-                                .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 32.dp)
-                        ) {
-                            if (!syncFinished) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(start = 28.dp, end = 28.dp, top = 8.dp, bottom = 108.dp)
+                            ) {
+                            if (isSyncing && !syncFinished) {
                                 Text(
                                     text = "发送过程中请不要操作手表",
                                     style = MiuixTheme.textStyles.body2,
@@ -646,30 +663,65 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     modifier = Modifier.padding(vertical = 2.dp)
                                 )
                             }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-                            if (syncFinished) {
-                                TextButton(
-                                    text = "完成",
-                                    onClick = { showSyncSheet.value = false },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.textButtonColorsPrimary()
-                                )
-                            } else {
-                                TextButton(
-                                    text = "取消",
-                                    onClick = {
-                                        syncJob?.cancel()
-                                        val idx = syncSteps.indexOfFirst { it.status == StepStatus.IN_PROGRESS }
-                                        if (idx >= 0) syncSteps[idx] = syncSteps[idx].copy(status = StepStatus.ERROR)
-                                        syncResultSummary = "已取消"
-                                        syncFinished = true
-                                        isSyncing = false
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
                         }
+
+                        // 底部渐变叠层
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(100.dp)
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            MiuixTheme.colorScheme.background
+                                        )
+                                    )
+                                )
+                        )
+
+                        // 底部固定按钮
+                        if (syncFinished) {
+                            TextButton(
+                                text = "完成",
+                                onClick = { showSyncSheet.value = false },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 28.dp, vertical = 28.dp),
+                                colors = ButtonDefaults.textButtonColorsPrimary()
+                            )
+                        } else if (isSyncing) {
+                            TextButton(
+                                text = "取消",
+                                onClick = {
+                                    syncJob?.cancel()
+                                    val idx = syncSteps.indexOfFirst { it.status == StepStatus.IN_PROGRESS }
+                                    if (idx >= 0) syncSteps[idx] = syncSteps[idx].copy(status = StepStatus.ERROR)
+                                    syncResultSummary = "已取消"
+                                    syncFinished = true
+                                    isSyncing = false
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 28.dp, vertical = 28.dp)
+                            )
+                        } else {
+                            TextButton(
+                                text = if (syncSheetTitle.contains("清除")) "开始清除" else "开始同步",
+                                onClick = {
+                                    if (syncSheetTitle.contains("清除")) startClear() else startSync()
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 28.dp, vertical = 28.dp),
+                                colors = ButtonDefaults.textButtonColorsPrimary()
+                            )
+                        }
+                        } // closes Box
                     }
 
                     // 空配置确认清除弹窗
@@ -833,7 +885,8 @@ private fun BackgroundImageItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 8.dp)
     ) {
         BasicComponent(
             title = label,
