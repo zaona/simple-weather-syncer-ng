@@ -609,7 +609,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            MiuixIcons.Heavy.Background,
+                                            MiuixIcons.Demibold.Background,
                                             contentDescription = null,
                                             modifier = Modifier.size(20.dp),
                                             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary
@@ -638,7 +638,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            MiuixIcons.Heavy.Create,
+                                            MiuixIcons.Demibold.Create,
                                             contentDescription = null,
                                             modifier = Modifier.size(20.dp),
                                             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary
@@ -667,7 +667,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            MiuixIcons.Heavy.Tune,
+                                            MiuixIcons.Demibold.Tune,
                                             contentDescription = null,
                                             modifier = Modifier.size(20.dp),
                                             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary
@@ -825,7 +825,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                                     modifier = Modifier.size(22.dp)
                                                 )
                                                 step.status == StepStatus.ERROR -> Icon(
-                                                    imageVector = MiuixIcons.Heavy.Close2,
+                                                    imageVector = MiuixIcons.Demibold.Close2,
                                                     contentDescription = "错误",
                                                     tint = MiuixTheme.colorScheme.error,
                                                     modifier = Modifier.size(22.dp)
@@ -844,7 +844,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     startAction = {
                                         Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                                             Icon(
-                                                imageVector = MiuixIcons.Heavy.Backup,
+                                                imageVector = MiuixIcons.Demibold.Backup,
                                                 contentDescription = null,
                                                 tint = MiuixTheme.colorScheme.primary,
                                                 modifier = Modifier.size(22.dp)

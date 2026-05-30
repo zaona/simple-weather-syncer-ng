@@ -64,7 +64,7 @@ import top.yukonga.miuix.kmp.icon.extended.Create
 import top.yukonga.miuix.kmp.icon.extended.Link
 import top.yukonga.miuix.kmp.icon.extended.MindMap
 import top.yukonga.miuix.kmp.icon.extended.Report
-import top.yukonga.miuix.kmp.shapes.SmoothRoundedCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -294,8 +294,8 @@ private fun PriceHero(
             .padding(horizontal = 24.dp)
             .textureBlur(
                 backdrop = backdrop,
-                shape = SmoothRoundedCornerShape(24.dp),
-                blurRadius = 150f,
+                shape = RoundedCornerShape(24.dp),
+                blurRadius = 50f,
                 colors = BlurColors(
                     blendColors = aboutLogoBlend,
                 ),

@@ -281,7 +281,7 @@ class MainActivity : ComponentActivity() {
                                 Modifier.textureBlur(
                                     backdrop = topBarBackdrop,
                                     shape = RectangleShape,
-                                    blurRadius = 60f,
+                                    blurRadius = 20f,
                                     colors = BlurColors(
                                         blendColors = listOf(
                                             BlendColorEntry(
