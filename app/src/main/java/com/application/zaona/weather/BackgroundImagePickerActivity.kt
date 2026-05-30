@@ -48,6 +48,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.application.zaona.weather.service.ImageSyncManager
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import com.application.zaona.weather.util.ImageProcessingUtil
@@ -129,7 +131,11 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 val prefs = remember { context.getSharedPreferences("weather_prefs", android.content.Context.MODE_PRIVATE) }
                 var darkenStrength by remember { mutableStateOf(prefs.getInt("bg_darken_strength", 0)) }
                 var blurRadius by remember { mutableStateOf(prefs.getInt("bg_blur_radius", 0)) }
-                var quality by remember { mutableStateOf(prefs.getInt("bg_quality", 100)) }
+                var quality by remember { mutableStateOf(prefs.getInt("bg_quality", 10)) }
+
+                // 预览参数仅在松手时更新，避免拖动滑块时频繁重新生成缩略图
+                var darkenPreview by remember { mutableStateOf(darkenStrength) }
+                var blurPreview by remember { mutableStateOf(blurRadius) }
 
                 val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
                 val messageApi = remember { Wearable.getMessageApi(context.applicationContext) }
@@ -395,6 +401,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         onValueChange = { darkenStrength = it.toInt() },
                                         onValueChangeFinished = {
                                             prefs.edit().putInt("bg_darken_strength", darkenStrength).apply()
+                                            darkenPreview = darkenStrength
                                         },
                                         valueRange = 0f..100f
                                     )
@@ -423,8 +430,9 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         onValueChange = { blurRadius = it.toInt() },
                                         onValueChangeFinished = {
                                             prefs.edit().putInt("bg_blur_radius", blurRadius).apply()
+                                            blurPreview = blurRadius
                                         },
-                                        valueRange = 0f..25f
+                                        valueRange = 0f..100f
                                     )
 
                                     Spacer(modifier = Modifier.height(20.dp))
@@ -452,7 +460,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         onValueChangeFinished = {
                                             prefs.edit().putInt("bg_quality", quality).apply()
                                         },
-                                        valueRange = 10f..100f
+                                        valueRange = 10f..50f
                                     )
                                 }
                             }
@@ -473,8 +481,8 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         ImageSyncManager.removeImagePath(code)
                                         imagePaths[code] = null
                                     },
-                                    darkenStrength = darkenStrength,
-                                    blurRadius = blurRadius
+                                    darkenStrength = darkenPreview,
+                                    blurRadius = blurPreview
                                 )
                             }
                         }
@@ -494,6 +502,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
                                 .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 32.dp)
                         ) {
                             if (!syncFinished) {

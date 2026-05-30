@@ -19,7 +19,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 17
-        versionName = "2.3.2"
+        versionName = "2.3.4"
 
         val weatherLocalProps = Properties().apply {
             val weatherLocalPropsFile = rootProject.file("weather.local.properties")

@@ -33,7 +33,7 @@ object ImageProcessingUtil {
     /**
      * 对 Bitmap 应用盒式模糊（3 次迭代逼近高斯模糊）
      * @param bitmap 原始图片
-     * @param radius 模糊半径 0-25，0 为不处理
+     * @param radius 模糊半径 0-100，0 为不处理
      * @return 处理后的新 Bitmap
      */
     fun applyBlur(bitmap: Bitmap, radius: Int): Bitmap {
