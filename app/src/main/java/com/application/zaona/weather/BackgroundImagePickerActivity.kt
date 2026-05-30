@@ -76,6 +76,8 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.FabPosition
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
@@ -92,6 +94,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Check
+import top.yukonga.miuix.kmp.menu.OverlayIconCascadingDropdownMenu
 import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.icon.extended.Add
@@ -102,6 +105,7 @@ import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Close2
 import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -565,6 +569,29 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     Icon(MiuixIcons.Back, contentDescription = "返回")
                                 }
                             },
+                            actions = {
+                                OverlayIconCascadingDropdownMenu(entry = DropdownEntry(
+                                    items = listOf(
+                                        DropdownItem(
+                                            text = "导入",
+                                            icon = { modifier -> Icon(MiuixIcons.Add, contentDescription = null, modifier = modifier) },
+                                            onClick = { importLauncher.launch(arrayOf("*/*")) }
+                                        ),
+                                        DropdownItem(
+                                            text = "导出",
+                                            icon = { modifier -> Icon(MiuixIcons.Backup, contentDescription = null, modifier = modifier) },
+                                            onClick = { performExport() }
+                                        ),
+                                        DropdownItem(
+                                            text = "分享",
+                                            icon = { modifier -> Icon(MiuixIcons.Send, contentDescription = null, modifier = modifier) },
+                                            onClick = { performShare() }
+                                        ),
+                                    )
+                                )) {
+                                    Icon(MiuixIcons.MoreCircle, contentDescription = "菜单")
+                                }
+                            },
                             scrollBehavior = scrollBehavior
                         )
                     },
@@ -687,59 +714,6 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         },
                                         valueRange = 10f..50f
                                     )
-                                }
-                            }
-                        }
-
-                        item {
-                            // 预设包导入/导出/分享卡片
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp)
-                                    .padding(bottom = 12.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            MiuixIcons.Backup,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp),
-                                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Text(
-                                            text = "预设包",
-                                            style = MiuixTheme.textStyles.body1
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        TextButton(
-                                            text = "导入",
-                                            onClick = {
-                                                importLauncher.launch(arrayOf("*/*"))
-                                            },
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        TextButton(
-                                            text = "导出",
-                                            onClick = { performExport() },
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        TextButton(
-                                            text = "分享",
-                                            onClick = { performShare() },
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
                                 }
                             }
                         }
