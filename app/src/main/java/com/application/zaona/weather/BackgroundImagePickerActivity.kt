@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.application.zaona.weather.service.BackgroundPresetManager
 import com.application.zaona.weather.service.ImageSyncManager
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import com.application.zaona.weather.util.ImageProcessingUtil
@@ -161,6 +162,76 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         val path = uri.toString()
                         ImageSyncManager.setImagePath(code, path)
                         imagePaths[code] = path
+                    }
+                }
+
+                val showImportConfirmDialog = remember { mutableStateOf(false) }
+                var importConfirmPresetCount by remember { mutableStateOf(0) }
+                var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
+                var showLoadingDialog by remember { mutableStateOf(false) }
+                var loadingMessage by remember { mutableStateOf("") }
+                var showResultDialog by remember { mutableStateOf(false) }
+                var resultTitle by remember { mutableStateOf("") }
+                var resultSummary by remember { mutableStateOf("") }
+
+                val importLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.OpenDocument()
+                ) { uri: Uri? ->
+                    if (uri != null) {
+                        scope.launch {
+                            loadingMessage = "正在解析预设包..."
+                            showLoadingDialog = true
+                            val result = BackgroundPresetManager.peekImportInfo(context, uri)
+                            showLoadingDialog = false
+                            if (result.isSuccess) {
+                                pendingImportUri = uri
+                                importConfirmPresetCount = result.getOrNull()?.presets?.size ?: 0
+                                showImportConfirmDialog.value = true
+                            } else {
+                                resultTitle = "导入失败"
+                                resultSummary = result.exceptionOrNull()?.message ?: "未知错误"
+                                showResultDialog = true
+                            }
+                        }
+                    }
+                }
+
+                val exportLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.CreateDocument(BackgroundPresetManager.MIME_TYPE)
+                ) { uri: Uri? ->
+                    if (uri != null) {
+                        scope.launch {
+                            loadingMessage = "正在导出预设包..."
+                            showLoadingDialog = true
+                            try {
+                                val outFile = java.io.File(
+                                    context.cacheDir,
+                                    "swbg_export${BackgroundPresetManager.FILE_EXTENSION}"
+                                )
+                                if (outFile.exists()) outFile.delete()
+                                val result = BackgroundPresetManager.exportToFile(context, outFile)
+                                if (result.isSuccess) {
+                                    // 复制到用户选择的位置
+                                    context.contentResolver.openOutputStream(uri)?.use { os ->
+                                        outFile.inputStream().use { it.copyTo(os) }
+                                    }
+                                    showLoadingDialog = false
+                                    resultTitle = "导出成功"
+                                    resultSummary = "预设包已保存"
+                                    showResultDialog = true
+                                } else {
+                                    showLoadingDialog = false
+                                    resultTitle = "导出失败"
+                                    resultSummary = result.exceptionOrNull()?.message ?: "未知错误"
+                                    showResultDialog = true
+                                }
+                            } catch (e: Exception) {
+                                showLoadingDialog = false
+                                resultTitle = "导出失败"
+                                resultSummary = e.message ?: "未知错误"
+                                showResultDialog = true
+                            }
+                        }
                     }
                 }
 
@@ -416,6 +487,74 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     }
                 }
 
+                fun performExport() {
+                    if (isSyncing) return
+                    val count = imagePaths.values.count { it != null }
+                    if (count == 0) {
+                        resultTitle = "无法导出"
+                        resultSummary = "没有可导出的背景图"
+                        showResultDialog = true
+                        return
+                    }
+                    exportLauncher.launch("weather_backgrounds${BackgroundPresetManager.FILE_EXTENSION}")
+                }
+
+                fun performShare() {
+                    if (isSyncing) return
+                    val count = imagePaths.values.count { it != null }
+                    if (count == 0) {
+                        resultTitle = "无法分享"
+                        resultSummary = "没有可分享的背景图"
+                        showResultDialog = true
+                        return
+                    }
+                    scope.launch {
+                        loadingMessage = "正在准备分享..."
+                        showLoadingDialog = true
+                        val result = BackgroundPresetManager.prepareShareFile(context)
+                        showLoadingDialog = false
+                        if (result.isSuccess) {
+                            val file = result.getOrThrow()
+                            val uri = com.application.zaona.weather.service.FileProviderHelper.getUriForFile(context, file)
+                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = BackgroundPresetManager.MIME_TYPE
+                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(android.content.Intent.createChooser(shareIntent, "分享背景预设包"))
+                        } else {
+                            resultTitle = "分享失败"
+                            resultSummary = result.exceptionOrNull()?.message ?: "未知错误"
+                            showResultDialog = true
+                        }
+                    }
+                }
+
+                fun performConfirmedImport() {
+                    val uri = pendingImportUri ?: return
+                    scope.launch {
+                        loadingMessage = "正在导入预设包..."
+                        showLoadingDialog = true
+                        val result = BackgroundPresetManager.performImport(context, uri)
+                        showLoadingDialog = false
+                        if (result.isSuccess) {
+                            val count = result.getOrDefault(0)
+                            // 刷新 imagePaths
+                            ImageSyncManager.WEATHER_BG_CODES.forEach { (code, _) ->
+                                imagePaths[code] = ImageSyncManager.getImagePath(code)
+                            }
+                            resultTitle = "导入成功"
+                            resultSummary = "已导入 $count 张背景图"
+                            showResultDialog = true
+                        } else {
+                            resultTitle = "导入失败"
+                            resultSummary = result.exceptionOrNull()?.message ?: "未知错误"
+                            showResultDialog = true
+                        }
+                        pendingImportUri = null
+                    }
+                }
+
                 Scaffold(
                     contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
                     topBar = {
@@ -548,6 +687,59 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         },
                                         valueRange = 10f..50f
                                     )
+                                }
+                            }
+                        }
+
+                        item {
+                            // 预设包导入/导出/分享卡片
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp)
+                                    .padding(bottom = 12.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            MiuixIcons.Backup,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = "预设包",
+                                            style = MiuixTheme.textStyles.body1
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        TextButton(
+                                            text = "导入",
+                                            onClick = {
+                                                importLauncher.launch(arrayOf("*/*"))
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        TextButton(
+                                            text = "导出",
+                                            onClick = { performExport() },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        TextButton(
+                                            text = "分享",
+                                            onClick = { performShare() },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -722,6 +914,75 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             )
                         }
                         } // closes Box
+                    }
+
+                    // 加载中弹窗
+                    OverlayDialog(
+                        title = loadingMessage,
+                        summary = "请稍候...",
+                        show = showLoadingDialog,
+                        onDismissRequest = { /* 阻塞关闭 */ }
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                size = 32.dp,
+                                strokeWidth = 3.dp,
+                                colors = ProgressIndicatorDefaults.progressIndicatorColors(
+                                    foregroundColor = MiuixTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                    }
+
+                    // 操作结果弹窗
+                    OverlayDialog(
+                        title = resultTitle,
+                        summary = resultSummary,
+                        show = showResultDialog,
+                        onDismissRequest = { showResultDialog = false }
+                    ) {
+                        TextButton(
+                            text = "确定",
+                            onClick = { showResultDialog = false },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // 导入确认弹窗
+                    OverlayDialog(
+                        title = "确认导入",
+                        summary = "预设包包含 $importConfirmPresetCount 张背景图，若已有配置将被覆盖。确定继续吗？",
+                        show = showImportConfirmDialog.value,
+                        onDismissRequest = {
+                            showImportConfirmDialog.value = false
+                            pendingImportUri = null
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            TextButton(
+                                text = "取消",
+                                onClick = {
+                                    showImportConfirmDialog.value = false
+                                    pendingImportUri = null
+                                },
+                                modifier = Modifier.weight(1f).fillMaxWidth()
+                            )
+                            TextButton(
+                                text = "确认",
+                                onClick = {
+                                    showImportConfirmDialog.value = false
+                                    performConfirmedImport()
+                                },
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                                colors = ButtonDefaults.textButtonColorsPrimary()
+                            )
+                        }
                     }
 
                     // 空配置确认清除弹窗
