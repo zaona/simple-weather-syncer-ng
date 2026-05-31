@@ -227,62 +227,74 @@ object BackgroundPresetManager {
         }
 
     /**
-     * 执行实际导入操作
+     * 执行实际导入操作（单次遍历，避免对慢速 URI 的重复读取）
      * @return 成功导入的图片数量
      */
     suspend fun performImport(context: Context, inputUri: Uri): Result<Int> =
         withContext(Dispatchers.IO) {
             try {
-                val manifest = readManifest(context, inputUri)
+                // 单次遍历 ZIP：先读 manifest，再提取图片
+                var manifest: PresetManifest? = null
+                val imageDataList = mutableListOf<Pair<String, ByteArray>>() // imageFileName -> bytes
 
-                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                val settingsPrefs = context.getSharedPreferences(SETTINGS_PREFS_NAME, Context.MODE_PRIVATE)
-
-                // 保存全局设置
-                settingsPrefs.edit()
-                    .putInt("bg_darken_strength", manifest.globalSettings.darkenStrength)
-                    .putInt("bg_blur_radius", manifest.globalSettings.blurRadius)
-                    .putInt("bg_quality", manifest.globalSettings.quality)
-                    .putBoolean("advanced_sync_mode", manifest.globalSettings.advancedSyncMode)
-                    .apply()
-
-                // 准备存储目录
-                val bgDir = File(context.filesDir, "custom_backgrounds")
-                if (!bgDir.exists()) bgDir.mkdirs()
-
-                var importedCount = 0
-
-                // 重新打开 ZIP 以提取图片
                 context.contentResolver.openInputStream(inputUri)?.use { inputStream ->
                     ZipInputStream(inputStream).use { zis ->
                         var entry = zis.nextEntry
                         while (entry != null) {
-                            if (!entry.isDirectory && entry.name.startsWith(IMAGES_DIR)) {
-                                val imageFileName = entry.name.removePrefix(IMAGES_DIR)
-                                // 从文件名解析 weatherCode（格式: {code}.{ext}）
-                                val code = imageFileName.substringBefore(".")
-
-                                if (manifest.presets.any { it.weatherCode == code }) {
-                                    val outFile = File(bgDir, imageFileName)
-                                    FileOutputStream(outFile).use { fos ->
-                                        zis.copyTo(fos)
+                            if (!entry.isDirectory) {
+                                when {
+                                    entry.name == MANIFEST_ENTRY -> {
+                                        val json = String(zis.readBytes(), Charsets.UTF_8)
+                                        manifest = gson.fromJson(json, PresetManifest::class.java)
                                     }
-
-                                    // 通过 FileProvider 生成 content URI
-                                    val contentUri = FileProviderHelper.getUriForFile(
-                                        context, outFile
-                                    )
-                                    prefs.edit()
-                                        .putString(KEY_PREFIX + code, contentUri.toString())
-                                        .apply()
-
-                                    importedCount++
+                                    entry.name.startsWith(IMAGES_DIR) -> {
+                                        val imageFileName = entry.name.removePrefix(IMAGES_DIR)
+                                        val bytes = java.io.ByteArrayOutputStream().use { baos ->
+                                            zis.copyTo(baos)
+                                            baos.toByteArray()
+                                        }
+                                        imageDataList.add(imageFileName to bytes)
+                                    }
                                 }
                             }
                             entry = zis.nextEntry
                         }
                     }
                 } ?: throw IllegalStateException("无法读取预设包文件")
+
+                if (manifest == null) {
+                    throw IllegalStateException("预设包中未找到 manifest.json")
+                }
+
+                // 保存全局设置
+                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val settingsPrefs = context.getSharedPreferences(SETTINGS_PREFS_NAME, Context.MODE_PRIVATE)
+                settingsPrefs.edit()
+                    .putInt("bg_darken_strength", manifest!!.globalSettings.darkenStrength)
+                    .putInt("bg_blur_radius", manifest!!.globalSettings.blurRadius)
+                    .putInt("bg_quality", manifest!!.globalSettings.quality)
+                    .putBoolean("advanced_sync_mode", manifest!!.globalSettings.advancedSyncMode)
+                    .apply()
+
+                // 准备存储目录并写入图片
+                val bgDir = File(context.filesDir, "custom_backgrounds")
+                if (!bgDir.exists()) bgDir.mkdirs()
+
+                var importedCount = 0
+                val presetCodes = manifest!!.presets.map { it.weatherCode }.toSet()
+
+                for ((imageFileName, bytes) in imageDataList) {
+                    val code = imageFileName.substringBefore(".")
+                    if (code !in presetCodes) continue
+
+                    val outFile = File(bgDir, imageFileName)
+                    outFile.writeBytes(bytes)
+                    val contentUri = FileProviderHelper.getUriForFile(context, outFile)
+                    prefs.edit()
+                        .putString(KEY_PREFIX + code, contentUri.toString())
+                        .apply()
+                    importedCount++
+                }
 
                 if (importedCount == 0) {
                     return@withContext Result.failure(IllegalStateException("未找到可导入的图片"))
