@@ -3,6 +3,7 @@ package com.application.zaona.weather
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -107,6 +108,7 @@ import top.yukonga.miuix.kmp.icon.extended.Close2
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.icon.extended.Send
+import top.yukonga.miuix.kmp.icon.extended.Share
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -135,6 +137,8 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     }
                     map
                 }
+                // 缩略图缓存，避免 LazyColumn 回收 item 时重新加载
+                val thumbnailCache = remember { mutableStateMapOf<String, ImageBitmap?>() }
                 val configuredCount = imagePaths.values.count { it != null }
 
                 val prefs = remember { context.getSharedPreferences("weather_prefs", android.content.Context.MODE_PRIVATE) }
@@ -182,6 +186,20 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     contract = ActivityResultContracts.OpenDocument()
                 ) { uri: Uri? ->
                     if (uri != null) {
+                        // 检查文件后缀名
+                        val fileName = runCatching {
+                            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
+                            }
+                        }.getOrNull()
+                        if (fileName != null && !fileName.endsWith(BackgroundPresetManager.FILE_EXTENSION)) {
+                            resultTitle = "导入失败"
+                            resultSummary = "请选择 .swbg 格式的预设包文件"
+                            showResultDialog = true
+                            return@rememberLauncherForActivityResult
+                        }
+
                         scope.launch {
                             loadingMessage = "正在解析预设包"
                             showLoadingDialog = true
@@ -584,7 +602,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         ),
                                         DropdownItem(
                                             text = "分享",
-                                            icon = { modifier -> Icon(MiuixIcons.Send, contentDescription = null, modifier = modifier) },
+                                            icon = { modifier -> Icon(MiuixIcons.Share, contentDescription = null, modifier = modifier) },
                                             onClick = { performShare() }
                                         ),
                                     )
@@ -732,9 +750,11 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     onClear = {
                                         ImageSyncManager.removeImagePath(code)
                                         imagePaths[code] = null
+                                        thumbnailCache.remove(code)
                                     },
                                     darkenStrength = darkenPreview,
-                                    blurRadius = blurPreview
+                                    blurRadius = blurPreview,
+                                    thumbnailCache = thumbnailCache
                                 )
                             }
                         }
@@ -1078,18 +1098,19 @@ private fun BackgroundImageItem(
     onSelect: () -> Unit,
     onClear: () -> Unit,
     darkenStrength: Int = 0,
-    blurRadius: Int = 0
+    blurRadius: Int = 0,
+    thumbnailCache: MutableMap<String, ImageBitmap?>
 ) {
     val hasImage = imagePath != null
     val context = LocalContext.current
-    var thumbnail by remember(imagePath) { mutableStateOf<ImageBitmap?>(null) }
+    val thumbnail = thumbnailCache[code]
 
     val fileName = remember(imagePath) {
         if (imagePath == null) null
         else try {
             val uri = Uri.parse(imagePath)
             context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
             }
         } catch (_: Exception) { null }
@@ -1097,10 +1118,10 @@ private fun BackgroundImageItem(
 
     LaunchedEffect(imagePath, darkenStrength, blurRadius) {
         if (imagePath == null) {
-            thumbnail = null
+            thumbnailCache.remove(code)
             return@LaunchedEffect
         }
-        thumbnail = withContext(Dispatchers.IO) {
+        val bmp = withContext(Dispatchers.IO) {
             try {
                 val uri = Uri.parse(imagePath)
                 context.contentResolver.openInputStream(uri)?.use { stream ->
@@ -1113,6 +1134,7 @@ private fun BackgroundImageItem(
                 }
             } catch (_: Exception) { null }
         }
+        thumbnailCache[code] = bmp
     }
 
     Card(
@@ -1135,7 +1157,7 @@ private fun BackgroundImageItem(
                 ) {
                     if (thumbnail != null) {
                         Image(
-                            bitmap = thumbnail!!,
+                            bitmap = thumbnail,
                             contentDescription = label,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
