@@ -31,11 +31,13 @@ import kotlin.coroutines.resumeWithException
 object ImageSyncManager {
     private const val PREFS_NAME = "custom_backgrounds"
     private const val KEY_PREFIX = "custom_bg_"
+    private const val KEY_NAME_PREFIX = "custom_bg_name_"
     private const val CHUNK_SIZE = 3072
     private const val MAX_IMAGE_WIDTH = 432
     private const val MAX_IMAGE_HEIGHT = 514
 
     private lateinit var prefs: SharedPreferences
+    private lateinit var appContext: Context
 
     /**
      * 所有支持的天气背景图编号及其中文标签
@@ -57,6 +59,7 @@ object ImageSyncManager {
 
     fun init(context: Context) {
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        appContext = context.applicationContext
     }
 
     fun getImagePath(weatherCode: String): String? {
@@ -67,8 +70,74 @@ object ImageSyncManager {
         prefs.edit().putString(KEY_PREFIX + weatherCode, imagePath).apply()
     }
 
+    fun setImageFileName(weatherCode: String, fileName: String) {
+        prefs.edit().putString(KEY_NAME_PREFIX + weatherCode, fileName).apply()
+    }
+
+    fun getImageFileName(weatherCode: String): String? {
+        return prefs.getString(KEY_NAME_PREFIX + weatherCode, null)
+    }
+
+    /**
+     * 将用户选择的图片复制到应用本地存储，返回 FileProvider URI 字符串。
+     * 在 Android 13+ 上，GetContent 返回的 MediaStore URI 仅有临时权限，
+     * 必须立即复制到本地以避免后续访问时抛出 SecurityException。
+     */
+    fun copyImageToLocalStorage(context: Context, sourceUri: android.net.Uri, weatherCode: String): String? {
+        return try {
+            val bgDir = java.io.File(context.filesDir, "custom_backgrounds")
+            if (!bgDir.exists()) bgDir.mkdirs()
+
+            // 从源 URI 获取文件名和扩展名
+            var originalName: String? = null
+            var extension = "png"
+            context.contentResolver.query(sourceUri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst() && nameIndex >= 0) {
+                    originalName = cursor.getString(nameIndex)
+                }
+            }
+            if (originalName != null) {
+                val dotIndex = originalName.lastIndexOf('.')
+                if (dotIndex >= 0 && dotIndex < originalName.length - 1) {
+                    extension = originalName.substring(dotIndex + 1).lowercase()
+                }
+            }
+
+            val outFile = java.io.File(bgDir, "${weatherCode}.$extension")
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                java.io.FileOutputStream(outFile).use { output ->
+                    input.copyTo(output)
+                }
+            } ?: return null
+
+            val fileProviderUri = FileProviderHelper.getUriForFile(context, outFile)
+            fileProviderUri.toString()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun removeImagePath(weatherCode: String) {
-        prefs.edit().remove(KEY_PREFIX + weatherCode).apply()
+        // 删除本地文件
+        val path = prefs.getString(KEY_PREFIX + weatherCode, null)
+        if (path != null) {
+            try {
+                val uri = android.net.Uri.parse(path)
+                // 仅删除本应用 FileProvider 下的文件，不删除外部 URI 指向的文件
+                if (uri.authority?.endsWith(".bgpreset.fileprovider") == true) {
+                    val file = java.io.File(
+                        java.io.File(appContext.filesDir, "custom_backgrounds"),
+                        uri.lastPathSegment ?: ""
+                    )
+                    if (file.exists()) file.delete()
+                }
+            } catch (_: Exception) { }
+        }
+        prefs.edit()
+            .remove(KEY_PREFIX + weatherCode)
+            .remove(KEY_NAME_PREFIX + weatherCode)
+            .apply()
     }
 
     fun getConfiguredCount(): Int {

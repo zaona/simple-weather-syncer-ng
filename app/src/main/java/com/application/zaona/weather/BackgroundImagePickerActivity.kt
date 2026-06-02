@@ -161,18 +161,33 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     contract = ActivityResultContracts.GetContent()
                 ) { uri: Uri? ->
                     if (uri != null && selectedCode != null) {
-                        try {
-                            context.contentResolver.takePersistableUriPermission(
-                                uri,
-                                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                            )
-                        } catch (_: SecurityException) {
-                            // 部分设备不支持持久化权限，忽略错误继续
-                        }
                         val code = selectedCode!!
-                        val path = uri.toString()
-                        ImageSyncManager.setImagePath(code, path)
-                        imagePaths[code] = path
+                        // 在 Android 13+ 上，GetContent 返回的 MediaStore URI 仅有
+                        // 临时读取权限，必须立即复制到本地存储，否则后续访问（分享、
+                        // 缩略图加载、同步）会抛出 SecurityException。
+                        scope.launch {
+                            val localUri = withContext(Dispatchers.IO) {
+                                // 读取原始文件名（用于 UI 显示）
+                                val originalName: String? = try {
+                                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                                        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                        if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
+                                    }
+                                } catch (_: Exception) { null }
+
+                                val resultPath = ImageSyncManager.copyImageToLocalStorage(context, uri, code)
+                                if (resultPath != null && originalName != null) {
+                                    ImageSyncManager.setImageFileName(code, originalName)
+                                }
+                                resultPath
+                            }
+                            if (localUri != null) {
+                                ImageSyncManager.setImagePath(code, localUri)
+                                imagePaths[code] = localUri
+                            } else {
+                                Toast.makeText(context, "读取图片失败，请重试", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 }
 
@@ -1219,13 +1234,7 @@ private fun BackgroundImageItem(
 
     val fileName = remember(imagePath) {
         if (imagePath == null) null
-        else try {
-            val uri = Uri.parse(imagePath)
-            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
-            }
-        } catch (_: Exception) { null }
+        else ImageSyncManager.getImageFileName(code) ?: "自定义图片"
     }
 
     LaunchedEffect(imagePath, darkenStrength, blurRadius) {
