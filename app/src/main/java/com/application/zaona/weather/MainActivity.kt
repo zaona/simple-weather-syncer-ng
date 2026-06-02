@@ -173,6 +173,7 @@ class MainActivity : ComponentActivity() {
                 var watchIsForceUpdate by remember { mutableStateOf(false) }
                 val showDeviceActionDialog = remember { mutableStateOf(false) }
                 val showDeviceConnectionWizardDialog = remember { mutableStateOf(false) }
+                val showPermissionDeniedDialog = remember { mutableStateOf(false) }
                 val showLoadingDialog = remember { mutableStateOf(false) }
                 var loadingDialogTitle by remember { mutableStateOf("") }
                 var loadingDialogSummary by remember { mutableStateOf("") }
@@ -480,7 +481,12 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             }
                                         } catch (e: Exception) {
-                                            showMessageDialog("检查失败", e.message ?: "未知错误")
+                                            val msg = e.message ?: ""
+                                            if (msg.contains("permission denied", ignoreCase = true)) {
+                                                hideLoadingDialog { showPermissionDeniedDialog.value = true }
+                                            } else {
+                                                showMessageDialog("检查失败", msg.ifEmpty { "未知错误" })
+                                            }
                                         }
                                     }
                                 }
@@ -524,7 +530,12 @@ class MainActivity : ComponentActivity() {
                                                 showWatchStorageDialog.value = true
                                             }
                                         } catch (e: Exception) {
-                                            showMessageDialog("检查失败", e.message ?: "未知错误")
+                                            val msg = e.message ?: ""
+                                            if (msg.contains("permission denied", ignoreCase = true)) {
+                                                hideLoadingDialog { showPermissionDeniedDialog.value = true }
+                                            } else {
+                                                showMessageDialog("检查失败", msg.ifEmpty { "未知错误" })
+                                            }
                                         }
                                     }
                                 }
@@ -777,8 +788,13 @@ class MainActivity : ComponentActivity() {
                                                         return@launch
                                                     }
                                                 } catch (e: Exception) {
-                                                     showMessageDialog("检查失败", e.message ?: "未知错误")
-                                                     return@launch
+                                                    val msg = e.message ?: ""
+                                                    if (msg.contains("permission denied", ignoreCase = true)) {
+                                                        hideLoadingDialog { showPermissionDeniedDialog.value = true }
+                                                    } else {
+                                                        showMessageDialog("检查失败", msg.ifEmpty { "未知错误" })
+                                                    }
+                                                    return@launch
                                                 }
 
                                                 val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
@@ -901,10 +917,9 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         Text(
                                             text = """
-                                                1. 小米运动健康中连接设备
+                                                1. 在小米运动健康中连接设备
                                                 2. 保证小米运动健康后台运行
                                                 3. 返回当前页面重试
-                                                4. 若手机已解锁BL，请将小米运动健康和本同步器隐藏
                                             """.trimIndent(),
                                             modifier = Modifier.fillMaxWidth(),
                                             fontSize = MiuixTheme.textStyles.body1.fontSize,
@@ -928,6 +943,37 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
+                    }
+
+                    WindowDialog(
+                        title = "权限不足",
+                        summary = null,
+                        show = showPermissionDeniedDialog.value,
+                        onDismissRequest = { showPermissionDeniedDialog.value = false }
+                    ) {
+                        Text(
+                            text = """
+                                1. 若手机已解锁BL，请将小米运动健康和本同步器隐藏
+                                2. 打开小米运动健康→我的→设备授权管理→简明天气→确保两个权限开关都处于开启状态
+                            """.trimIndent(),
+                            modifier = Modifier.fillMaxWidth(),
+                            fontSize = MiuixTheme.textStyles.body1.fontSize,
+                            textAlign = TextAlign.Start,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            TextButton(
+                                text = "确定",
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { showPermissionDeniedDialog.value = false }
+                            )
+                        }
                     }
 
                 WindowDialog(
