@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -99,6 +100,7 @@ import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.menu.OverlayIconCascadingDropdownMenu
 import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Background
@@ -185,6 +187,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 var showResultDialog by remember { mutableStateOf(false) }
                 var resultTitle by remember { mutableStateOf("") }
                 var resultSummary by remember { mutableStateOf("") }
+                val showPermissionDeniedDialog = remember { mutableStateOf(false) }
 
                 val importLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.OpenDocument()
@@ -338,7 +341,20 @@ class BackgroundImagePickerActivity : ComponentActivity() {
 
                             // Step: 检查应用安装
                             syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
-                            val isInstalled = checkWatchAppInstalled(nodeApi, node.id)
+                            val isInstalled = try {
+                                checkWatchAppInstalled(nodeApi, node.id)
+                            } catch (e: Exception) {
+                                val msg = e.message ?: ""
+                                if (msg.contains("permission denied", ignoreCase = true)) {
+                                    syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
+                                    syncResultSummary = "权限不足"
+                                    syncFinished = true; isSyncing = false
+                                    showPermissionDeniedDialog.value = true
+                                    return@launch
+                                } else {
+                                    throw e
+                                }
+                            }
                             if (!isInstalled) {
                                 syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                                 syncResultSummary = "手表端未安装应用，请先安装"
@@ -455,7 +471,20 @@ class BackgroundImagePickerActivity : ComponentActivity() {
 
                             // Step: 检查应用安装
                             syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.IN_PROGRESS)
-                            val isInstalled = checkWatchAppInstalled(nodeApi, node.id)
+                            val isInstalled = try {
+                                checkWatchAppInstalled(nodeApi, node.id)
+                            } catch (e: Exception) {
+                                val msg = e.message ?: ""
+                                if (msg.contains("permission denied", ignoreCase = true)) {
+                                    syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
+                                    syncResultSummary = "权限不足"
+                                    syncFinished = true; isSyncing = false
+                                    showPermissionDeniedDialog.value = true
+                                    return@launch
+                                } else {
+                                    throw e
+                                }
+                            }
                             if (!isInstalled) {
                                 syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.ERROR)
                                 syncResultSummary = "手表端未安装应用，请先安装"
@@ -831,14 +860,12 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     .verticalScroll(rememberScrollState())
                                     .padding(start = 28.dp, end = 28.dp, top = 8.dp, bottom = 108.dp)
                             ) {
-                            if (isSyncing && !syncFinished) {
-                                Text(
-                                    text = "发送过程中请不要操作手表",
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
-                                )
-                            }
+                            Text(
+                                text = "发送过程中请不要操作手表",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                            )
                             syncSteps.forEach { step ->
                                 val showProgress = step.status == StepStatus.IN_PROGRESS && syncProgress > 0f && !syncFinished
                                 BasicComponent(
@@ -847,20 +874,12 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     startAction = {
                                         Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                                             when {
-                                                step.status == StepStatus.IN_PROGRESS -> CircularProgressIndicator(
-                                                    progress = if (showProgress) syncProgress else null,
+                                                step.status == StepStatus.IN_PROGRESS && showProgress -> CircularProgressIndicator(
+                                                    progress = syncProgress,
                                                     size = 22.dp,
                                                     strokeWidth = 3.dp,
                                                     colors = ProgressIndicatorDefaults.progressIndicatorColors(
                                                         foregroundColor = MiuixTheme.colorScheme.primary
-                                                    )
-                                                )
-                                                step.status == StepStatus.PENDING -> CircularProgressIndicator(
-                                                    progress = 0f,
-                                                    size = 22.dp,
-                                                    strokeWidth = 3.dp,
-                                                    colors = ProgressIndicatorDefaults.progressIndicatorColors(
-                                                        foregroundColor = MiuixTheme.colorScheme.disabledSecondary
                                                     )
                                                 )
                                                 step.status == StepStatus.DONE -> Icon(
@@ -874,6 +893,14 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                                     contentDescription = "错误",
                                                     tint = MiuixTheme.colorScheme.error,
                                                     modifier = Modifier.size(22.dp)
+                                                )
+                                                else -> CircularProgressIndicator(
+                                                    progress = 0f,
+                                                    size = 22.dp,
+                                                    strokeWidth = 3.dp,
+                                                    colors = ProgressIndicatorDefaults.progressIndicatorColors(
+                                                        foregroundColor = MiuixTheme.colorScheme.disabledSecondary
+                                                    )
                                                 )
                                             }
                                         }
@@ -992,6 +1019,38 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             onClick = { showResultDialog = false },
                             modifier = Modifier.fillMaxWidth()
                         )
+                    }
+
+                    // 权限不足弹窗
+                    WindowDialog(
+                        title = "权限不足",
+                        summary = null,
+                        show = showPermissionDeniedDialog.value,
+                        onDismissRequest = { showPermissionDeniedDialog.value = false }
+                    ) {
+                        Text(
+                            text = """
+                                1. 若手机已解锁BL，请将小米运动健康和本同步器隐藏
+                                2. 打开小米运动健康→我的→设备授权管理→简明天气→确保两个权限开关都处于开启状态
+                            """.trimIndent(),
+                            modifier = Modifier.fillMaxWidth(),
+                            fontSize = MiuixTheme.textStyles.body1.fontSize,
+                            textAlign = TextAlign.Start,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            TextButton(
+                                text = "确定",
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { showPermissionDeniedDialog.value = false }
+                            )
+                        }
                     }
 
                     // 导入确认弹窗
