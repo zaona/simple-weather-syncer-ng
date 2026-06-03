@@ -737,11 +737,10 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             .scrollEndHaptic()
                             .nestedScroll(scrollBehavior.nestedScrollConnection)
                     ) {
+                        // 图片处理
                         item {
                             Spacer(modifier = Modifier.height(6.dp))
-                            SmallTitle(text = "已配置 $configuredCount/12 张背景图")
-
-                            // 图片处理卡片
+                            SmallTitle(text = "图片处理")
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -836,6 +835,10 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                     )
                                 }
                             }
+                        }
+
+                        item {
+                            SmallTitle(text = "已配置 $configuredCount/12 张背景图")
                         }
 
                         ImageSyncManager.WEATHER_BG_CODES.forEach { (code, label) ->
