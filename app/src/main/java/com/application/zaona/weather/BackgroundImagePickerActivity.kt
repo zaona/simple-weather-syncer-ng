@@ -58,6 +58,7 @@ import com.application.zaona.weather.service.BackgroundPresetManager
 import com.application.zaona.weather.service.BrzAdapter
 import com.application.zaona.weather.service.ImageSyncManager
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
+import com.application.zaona.weather.ui.component.MarkdownText
 import com.application.zaona.weather.util.ImageProcessingUtil
 import com.xiaomi.xms.wearable.Wearable
 import com.xiaomi.xms.wearable.auth.AuthApi
@@ -109,6 +110,7 @@ import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Close2
 import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Help
 import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Share
@@ -302,6 +304,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 }
 
                 val showSyncSheet = remember { mutableStateOf(false) }
+                val showHelpSheet = remember { mutableStateOf(false) }
                 var syncSheetTitle by remember { mutableStateOf("") }
                 val syncSteps = remember { mutableStateListOf<SyncStep>() }
                 var syncFinished by remember { mutableStateOf(false) }
@@ -683,6 +686,10 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                 }
                             },
                             actions = {
+                                IconButton(onClick = { showHelpSheet.value = true }) {
+                                    Icon(MiuixIcons.Help, contentDescription = "帮助")
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
                                 OverlayIconCascadingDropdownMenu(entry = DropdownEntry(
                                     items = listOf(
                                         DropdownItem(
@@ -1001,6 +1008,39 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             )
                         }
                         } // closes Box
+                    }
+
+                    // 帮助指南 BottomSheet
+                    OverlayBottomSheet(
+                        show = showHelpSheet.value,
+                        title = "自定义背景图指南",
+                        onDismissRequest = { showHelpSheet.value = false },
+                        enableNestedScroll = false
+                    ) {
+                        MarkdownText(
+                            markdown = """
+## 选择背景图
+点击每种天气类型右侧的 + 按钮，从相册中选择一张图片作为该天气的自定义背景。支持 12 种天气类型，每种可单独设置。
+
+## 同步到手表
+配置好背景图后，点击右下角的发送按钮即可将所有背景图同步到手表端。同步过程中请不要操作手表。
+
+## 导入 / 导出预设包
+点击右上角菜单可导入或导出 `.swbg` 格式的预设包，方便备份和分享。也支持从「微风天气」导入 `.brz` 格式的预设。
+
+## 分享预设包
+将当前所有背景配置打包分享给其他人，对方可直接导入使用。
+
+## 图片处理参数
+- **压暗**：调整背景图亮度，数值越大越暗。
+- **模糊**：对背景图应用高斯模糊效果。
+- **画质**：控制同步到手表时的图片质量，数值越高画质越好但传输更慢。
+调节滑块后可实时预览效果。
+
+## 清除背景图
+若所有天气都未选图，点击同步按钮会弹出清除确认，可将手表端已存储的自定义背景图全部清除，恢复默认背景。
+                            """.trimIndent()
+                        )
                     }
 
                     // 加载中弹窗
