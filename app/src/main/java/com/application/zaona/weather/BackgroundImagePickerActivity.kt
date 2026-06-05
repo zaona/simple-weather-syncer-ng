@@ -125,6 +125,7 @@ private data class SyncStep(val label: String, val status: StepStatus = StepStat
 class BackgroundImagePickerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ImageSyncManager.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             SimpleweathersyncerngTheme {
