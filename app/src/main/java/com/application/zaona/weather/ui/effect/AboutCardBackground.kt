@@ -22,9 +22,9 @@ import kotlinx.coroutines.isActive
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
-import top.yukonga.miuix.kmp.blur.RuntimeShader
-import top.yukonga.miuix.kmp.blur.asBrush
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.shader.RuntimeShader
+import top.yukonga.miuix.kmp.shader.asBrush
+import top.yukonga.miuix.kmp.shader.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable

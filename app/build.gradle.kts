@@ -125,6 +125,7 @@ dependencies {
     implementation(libs.miuix.icons.android)
     implementation(libs.miuix.preference.android)
     implementation(libs.miuix.blur.android)
+    implementation(libs.miuix.shader.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
