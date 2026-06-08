@@ -733,10 +733,10 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                     androidx.compose.foundation.lazy.LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(padding)
                             .overScrollVertical()
                             .scrollEndHaptic()
-                            .nestedScroll(scrollBehavior.nestedScrollConnection)
+                            .nestedScroll(scrollBehavior.nestedScrollConnection),
+                        contentPadding = padding
                     ) {
                         // 图片处理
                         item {
