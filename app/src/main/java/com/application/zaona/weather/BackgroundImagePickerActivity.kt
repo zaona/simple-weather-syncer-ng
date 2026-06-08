@@ -111,9 +111,9 @@ import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Close2
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Help
-import top.yukonga.miuix.kmp.icon.extended.MoreCircle
+import top.yukonga.miuix.kmp.icon.extended.Forward
+import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Send
-import top.yukonga.miuix.kmp.icon.extended.Share
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -705,12 +705,12 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         ),
                                         DropdownItem(
                                             text = "分享",
-                                            icon = { modifier -> Icon(MiuixIcons.Share, contentDescription = null, modifier = modifier) },
+                                            icon = { modifier -> Icon(MiuixIcons.Forward, contentDescription = null, modifier = modifier) },
                                             onClick = { performShare() }
                                         ),
                                     )
                                 )) {
-                                    Icon(MiuixIcons.MoreCircle, contentDescription = "菜单")
+                                    Icon(MiuixIcons.More, contentDescription = "菜单")
                                 }
                             },
                             scrollBehavior = scrollBehavior

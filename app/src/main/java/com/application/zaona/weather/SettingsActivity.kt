@@ -248,13 +248,6 @@ class SettingsActivity : ComponentActivity() {
                                     .padding(horizontal = 12.dp)
                                     .padding(bottom = 12.dp)
                             ) {
-                                ArrowPreference(
-                                    title = "赞助者",
-                                    onClick = {
-                                        val intent = Intent(context, SponsorActivity::class.java)
-                                        context.startActivity(intent)
-                                    }
-                                )
                                 BasicComponent(
                                     title = "Waijade",
                                     summary = "为快应用与同步器插件贡献代码",
