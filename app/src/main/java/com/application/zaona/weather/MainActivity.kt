@@ -902,9 +902,10 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         Text(
                                             text = """
-                                                1. 在小米运动健康中连接设备
-                                                2. 保证小米运动健康后台运行
-                                                3. 返回当前页面重试
+                                                1. 确保表端已安装简明天气快应用
+                                                2. 在小米运动健康中连接设备
+                                                3. 保证小米运动健康后台运行
+                                                4. 返回当前页面重试
                                             """.trimIndent(),
                                             modifier = Modifier.fillMaxWidth(),
                                             fontSize = MiuixTheme.textStyles.body1.fontSize,
