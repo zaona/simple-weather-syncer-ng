@@ -21,9 +21,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,16 +47,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
-import com.application.zaona.weather.ui.component.SponsorPromoCard
+import com.application.zaona.weather.ui.effect.AboutCardBackground
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import com.xiaomi.xms.wearable.Wearable
-import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationItem
@@ -81,7 +86,6 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.union
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Send
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Theme
@@ -91,6 +95,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
@@ -629,16 +634,12 @@ class MainActivity : ComponentActivity() {
                                                 .padding(horizontal = 12.dp)
                                                 .padding(bottom = 12.dp)
                                         ) {
-                                            BasicComponent(
-                                                endActions = {
-                                                    Icon(
-                                                        imageVector = MiuixIcons.Basic.ArrowRight,
-                                                        contentDescription = null,
-                                                        modifier = Modifier
-                                                            .align(Alignment.CenterVertically)
-                                                            .size(16.dp),
-                                                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions
-                                                    )
+                                            ArrowPreference(
+                                                title = if (isConnected) "已连接设备" else "未连接设备",
+                                                summary = when {
+                                                    isConnected && deviceName.isNotBlank() -> deviceName
+                                                    isReconnecting -> "正在连接设备..."
+                                                    else -> "点击重新连接"
                                                 },
                                                 onClick = {
                                                     if (isConnected && nodeId.isNotEmpty()) {
@@ -647,23 +648,7 @@ class MainActivity : ComponentActivity() {
                                                         retryDeviceConnection()
                                                     }
                                                 }
-                                            ) {
-                                                Text(
-                                                    text = if (isConnected) "已连接设备" else "未连接设备",
-                                                    fontSize = MiuixTheme.textStyles.headline1.fontSize,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = MiuixTheme.colorScheme.onSurface
-                                                )
-                                                Text(
-                                                    text = when {
-                                                        isConnected && deviceName.isNotBlank() -> deviceName
-                                                        isReconnecting -> "正在连接设备..."
-                                                        else -> "点击重新连接"
-                                                    },
-                                                    fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                                )
-                                            }
+                                            )
                                         }
 
                                     Card(
@@ -1424,6 +1409,54 @@ class MainActivity : ComponentActivity() {
         return sdf.format(java.util.Date(timestamp))
     }
 
+}
+
+@Composable
+private fun SponsorPromoCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val surface = MiuixTheme.colorScheme.surface
+    val isDark = surface.luminance() < 0.5f
+    val titleColor = MiuixTheme.colorScheme.onSurface
+    val summaryColor = titleColor.copy(alpha = if (isDark) 0.78f else 0.72f)
+    val overlayBrush = Brush.verticalGradient(
+        colors = listOf(
+            surface.copy(alpha = if (isDark) 0.08f else 0.02f),
+            surface.copy(alpha = if (isDark) 0.28f else 0.14f),
+        ),
+    )
+
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.defaultColors(
+            color = Color.Transparent,
+            contentColor = titleColor,
+        ),
+        pressFeedbackType = PressFeedbackType.Sink,
+        onClick = onClick,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AboutCardBackground(
+                modifier = Modifier.matchParentSize()
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(overlayBrush)
+            )
+            ArrowPreference(
+                modifier = Modifier.fillMaxWidth(),
+                title = "支持本项目",
+                titleColor = BasicComponentDefaults.titleColor(titleColor),
+                summary = "赞助可帮助维护天气服务并支持后续功能开发",
+                summaryColor = BasicComponentDefaults.summaryColor(summaryColor),
+                insideMargin = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            )
+        }
+    }
 }
 
 @Composable
