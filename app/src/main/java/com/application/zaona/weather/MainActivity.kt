@@ -52,7 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
-import com.application.zaona.weather.ui.effect.AboutCardBackground
+import com.application.zaona.weather.ui.component.DynamicCardBackground
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import com.xiaomi.xms.wearable.Wearable
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
@@ -1439,7 +1439,7 @@ private fun SponsorPromoCard(
         Box(
             modifier = Modifier.fillMaxWidth()
         ) {
-            AboutCardBackground(
+            DynamicCardBackground(
                 modifier = Modifier.matchParentSize()
             )
             Box(

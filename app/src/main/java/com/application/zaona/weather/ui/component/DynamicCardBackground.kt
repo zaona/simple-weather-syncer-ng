@@ -1,4 +1,4 @@
-package com.application.zaona.weather.ui.effect
+package com.application.zaona.weather.ui.component
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -14,13 +14,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.cos
-import kotlin.math.max
 import kotlin.math.sin
 import top.yukonga.miuix.kmp.shader.RuntimeShader
 import top.yukonga.miuix.kmp.shader.asBrush
@@ -28,7 +25,7 @@ import top.yukonga.miuix.kmp.shader.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-fun AboutCardBackground(
+fun DynamicCardBackground(
     modifier: Modifier = Modifier,
     animate: Boolean = true,
     content: @Composable (BoxScope.() -> Unit) = {},
@@ -36,14 +33,14 @@ fun AboutCardBackground(
     val shaderSupported = remember { isRuntimeShaderSupported() }
     val surface = MiuixTheme.colorScheme.surface
     val isDark = surface.luminance() < 0.5f
-    val preset = remember(isDark) { AboutCardBackgroundConfig.get(isDark) }
-    val painter = if (shaderSupported) remember { AboutCardBackgroundPainter() } else null
+    val preset = remember(isDark) { DynamicCardBackgroundConfig.get(isDark) }
+    val painter = if (shaderSupported) remember { DynamicCardBackgroundPainter() } else null
     val frameTimeSeconds = rememberFrameTimeSeconds(animate)
     val colorStage = remember { Animatable(0f) }
 
     LaunchedEffect(animate, preset) {
         if (!animate) return@LaunchedEffect
-        var targetStage = 1f
+        var targetStage = colorStage.value.toInt() + 1f
         while (isActive) {
             delay((preset.colorInterpPeriod * 500).toLong())
             colorStage.animateTo(
@@ -60,43 +57,20 @@ fun AboutCardBackground(
         ) {
             drawRect(surface)
 
-            val stage = colorStage.value
-            val base = stage.toInt()
-            val fraction = stage - base
+            val animTime = frameTimeSeconds()
+            if (painter == null) return@Canvas
 
-            val getColors = { index: Int ->
-                when (index % 4) {
-                    0 -> preset.colors2
-                    1 -> preset.colors1
-                    2 -> preset.colors2
-                    else -> preset.colors3
-                }
-            }
-
-            val start = getColors(base)
-            val end = getColors(base + 1)
-            val currentColors = FloatArray(16) { index ->
-                start[index] + (end[index] - start[index]) * fraction
-            }
-
-            if (painter != null) {
-                painter.updateResolution(size.width, size.height)
-                painter.updatePresetIfNeeded(
-                    contentHeight = size.height,
-                    totalHeight = size.height,
-                    totalWidth = size.width,
-                    isDark = isDark,
-                )
-                painter.updateColors(currentColors)
-                painter.updateAnimTime(frameTimeSeconds())
-                drawRect(painter.brush)
-            } else {
-                drawFallbackBackground(
-                    preset = preset,
-                    currentColors = currentColors,
-                    animTime = frameTimeSeconds(),
-                )
-            }
+            painter.updateResolution(size.width, size.height)
+            painter.updatePresetIfNeeded(
+                contentHeight = size.height,
+                totalHeight = size.height,
+                totalWidth = size.width,
+                isDark = isDark,
+            )
+            painter.updateColors(preset, colorStage.value)
+            painter.updatePointsAnim(animTime, preset)
+            painter.updateAnimTime(animTime)
+            drawRect(painter.brush)
         }
         content()
     }
@@ -125,50 +99,35 @@ private fun rememberFrameTimeSeconds(
     return { time }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFallbackBackground(
-    preset: AboutCardBackgroundConfig.Config,
-    currentColors: FloatArray,
-    animTime: Float,
-) {
-    val maxDimension = max(size.width, size.height)
-    repeat(4) { index ->
-        val colorIndex = index * 4
-        val pointIndex = index * 3
-
-        val color = Color(
-            red = currentColors[colorIndex],
-            green = currentColors[colorIndex + 1],
-            blue = currentColors[colorIndex + 2],
-            alpha = currentColors[colorIndex + 3],
-        )
-
-        val baseX = preset.points[pointIndex]
-        val baseY = preset.points[pointIndex + 1]
-        val radiusFactor = preset.points[pointIndex + 2]
-
-        val animatedX = baseX + sin(animTime + baseY) * preset.pointOffset
-        val animatedY = baseY + cos(animTime + baseX) * preset.pointOffset
-
-        drawCircle(
-            color = color,
-            radius = maxDimension * radiusFactor * 0.68f,
-            center = Offset(
-                x = animatedX * size.width,
-                y = animatedY * size.height,
-            ),
-        )
+private fun colorsForStage(
+    preset: DynamicCardBackgroundConfig.Config,
+    stage: Float,
+): FloatArray {
+    val base = stage.toInt()
+    val fraction = stage - base
+    val start = colorsForCycleIndex(preset, base)
+    val end = colorsForCycleIndex(preset, base + 1)
+    return FloatArray(16) { index ->
+        start[index] + (end[index] - start[index]) * fraction
     }
 }
 
-private class AboutCardBackgroundPainter {
+private fun colorsForCycleIndex(
+    preset: DynamicCardBackgroundConfig.Config,
+    index: Int,
+): FloatArray = when (index.mod(4)) {
+    1 -> preset.colors1
+    3 -> preset.colors3
+    else -> preset.colors2
+}
+
+private class DynamicCardBackgroundPainter {
     val runtimeShader by lazy {
-        RuntimeShader(ABOUT_CARD_BG_FRAG).also { shader ->
+        RuntimeShader(OS3_CARD_BG_FRAG).also { shader ->
             shader.setFloatUniform("uTranslateY", 0f)
             shader.setFloatUniform("uNoiseScale", 1.5f)
             shader.setFloatUniform("uPointRadiusMulti", 1f)
             shader.setFloatUniform("uAlphaMulti", 1f)
-            shader.setFloatUniform("uAlphaOffset", 0.1f)
-            shader.setFloatUniform("uShadowOffset", 0.01f)
         }
     }
 
@@ -176,10 +135,19 @@ private class AboutCardBackgroundPainter {
 
     private val resolution = FloatArray(2)
     private val bound = FloatArray(4)
+    private val colorsBuffer = FloatArray(16)
+    private val pointsAnimBuffer = FloatArray(8)
 
     private var animTime = Float.NaN
     private var isDarkCached: Boolean? = null
     private var presetApplied = false
+    private var cachedContentHeight = Float.NaN
+    private var cachedTotalHeight = Float.NaN
+    private var cachedTotalWidth = Float.NaN
+    private var cachedColorStage = Float.NaN
+    private var cachedColorsPreset: DynamicCardBackgroundConfig.Config? = null
+    private var cachedPointsAnimTime = Float.NaN
+    private var cachedPointsAnimPreset: DynamicCardBackgroundConfig.Config? = null
 
     fun updateResolution(width: Float, height: Float) {
         if (resolution[0] == width && resolution[1] == height) return
@@ -194,8 +162,40 @@ private class AboutCardBackgroundPainter {
         runtimeShader.setFloatUniform("uAnimTime", animTime)
     }
 
-    fun updateColors(colors: FloatArray) {
-        runtimeShader.setFloatUniform("uColors", colors)
+    fun updatePointsAnim(
+        time: Float,
+        preset: DynamicCardBackgroundConfig.Config,
+    ) {
+        if (cachedPointsAnimTime == time && cachedPointsAnimPreset === preset) return
+
+        repeat(4) { index ->
+            val sourceX = preset.points[index * 3]
+            val sourceY = preset.points[index * 3 + 1]
+            val animatedX = sourceX + sin(time + sourceY) * preset.pointOffset
+            val animatedY = sourceY + cos(time + animatedX) * preset.pointOffset
+            pointsAnimBuffer[index * 2] = animatedX
+            pointsAnimBuffer[index * 2 + 1] = animatedY
+        }
+        runtimeShader.setFloatUniform("uPointsAnim", pointsAnimBuffer)
+
+        cachedPointsAnimTime = time
+        cachedPointsAnimPreset = preset
+    }
+
+    fun updateColors(
+        preset: DynamicCardBackgroundConfig.Config,
+        stage: Float,
+    ) {
+        if (cachedColorsPreset === preset && cachedColorStage == stage) return
+
+        val colors = colorsForStage(preset, stage)
+        for (index in colors.indices) {
+            colorsBuffer[index] = colors[index]
+        }
+        runtimeShader.setFloatUniform("uColors", colorsBuffer)
+
+        cachedColorsPreset = preset
+        cachedColorStage = stage
     }
 
     fun updatePresetIfNeeded(
@@ -204,24 +204,28 @@ private class AboutCardBackgroundPainter {
         totalWidth: Float,
         isDark: Boolean,
     ) {
+        if (cachedContentHeight != contentHeight ||
+            cachedTotalHeight != totalHeight ||
+            cachedTotalWidth != totalWidth
+        ) {
+            updateBound(contentHeight, totalHeight, totalWidth)
+            runtimeShader.setFloatUniform("uBound", bound)
+            cachedContentHeight = contentHeight
+            cachedTotalHeight = totalHeight
+            cachedTotalWidth = totalWidth
+        }
+
         if (presetApplied && isDarkCached == isDark) return
-        updateBound(contentHeight, totalHeight, totalWidth)
         applyPreset(isDark)
         isDarkCached = isDark
         presetApplied = true
     }
 
     private fun applyPreset(isDark: Boolean) {
-        val preset = AboutCardBackgroundConfig.get(isDark)
-
+        val preset = DynamicCardBackgroundConfig.get(isDark)
         runtimeShader.setFloatUniform("uPoints", preset.points)
-        runtimeShader.setFloatUniform("uPointOffset", preset.pointOffset)
         runtimeShader.setFloatUniform("uLightOffset", preset.lightOffset)
         runtimeShader.setFloatUniform("uSaturateOffset", preset.saturateOffset)
-        runtimeShader.setFloatUniform("uBound", bound)
-        runtimeShader.setFloatUniform("uShadowColorMulti", preset.shadowColorMulti)
-        runtimeShader.setFloatUniform("uShadowColorOffset", preset.shadowColorOffset)
-        runtimeShader.setFloatUniform("uShadowNoiseScale", preset.shadowNoiseScale)
     }
 
     private fun updateBound(
@@ -246,7 +250,7 @@ private class AboutCardBackgroundPainter {
     }
 }
 
-private object AboutCardBackgroundConfig {
+private object DynamicCardBackgroundConfig {
     class Config(
         val points: FloatArray,
         val colors1: FloatArray,
@@ -256,12 +260,9 @@ private object AboutCardBackgroundConfig {
         val lightOffset: Float,
         val saturateOffset: Float,
         val pointOffset: Float,
-        val shadowColorMulti: Float = 0.3f,
-        val shadowColorOffset: Float = 0.3f,
-        val shadowNoiseScale: Float = 5.0f,
     )
 
-    private val phoneLight = Config(
+    private val os3PhoneLight = Config(
         points = floatArrayOf(0.8f, 0.2f, 1.0f, 0.8f, 0.9f, 1.0f, 0.2f, 0.9f, 1.0f, 0.2f, 0.2f, 1.0f),
         colors1 = floatArrayOf(1.0f, 0.9f, 0.94f, 1.0f, 1.0f, 0.84f, 0.89f, 1.0f, 0.97f, 0.73f, 0.82f, 1.0f, 0.64f, 0.65f, 0.98f, 1.0f),
         colors2 = floatArrayOf(0.58f, 0.74f, 1.0f, 1.0f, 1.0f, 0.9f, 0.93f, 1.0f, 0.74f, 0.76f, 1.0f, 1.0f, 0.97f, 0.77f, 0.84f, 1.0f),
@@ -272,7 +273,7 @@ private object AboutCardBackgroundConfig {
         pointOffset = 0.2f,
     )
 
-    private val phoneDark = Config(
+    private val os3PhoneDark = Config(
         points = floatArrayOf(0.8f, 0.2f, 1.0f, 0.8f, 0.9f, 1.0f, 0.2f, 0.9f, 1.0f, 0.2f, 0.2f, 1.0f),
         colors1 = floatArrayOf(0.2f, 0.06f, 0.88f, 0.4f, 0.3f, 0.14f, 0.55f, 0.5f, 0.0f, 0.64f, 0.96f, 0.5f, 0.11f, 0.16f, 0.83f, 0.4f),
         colors2 = floatArrayOf(0.07f, 0.15f, 0.79f, 0.5f, 0.62f, 0.21f, 0.67f, 0.5f, 0.06f, 0.25f, 0.84f, 0.5f, 0.0f, 0.2f, 0.78f, 0.5f),
@@ -283,31 +284,22 @@ private object AboutCardBackgroundConfig {
         pointOffset = 0.4f,
     )
 
-    fun get(isDark: Boolean): Config = if (isDark) phoneDark else phoneLight
+    fun get(isDark: Boolean): Config = if (isDark) os3PhoneDark else os3PhoneLight
 }
 
-private const val ABOUT_CARD_BG_FRAG = """
+private const val OS3_CARD_BG_FRAG = """
     uniform vec2 uResolution;
-    uniform shader uTex;
-    uniform shader uTexBitmap;
-    uniform vec2 uTexWH;
-
     uniform float uAnimTime;
     uniform vec4 uBound;
     uniform float uTranslateY;
     uniform vec3 uPoints[4];
+    uniform vec2 uPointsAnim[4];
     uniform vec4 uColors[4];
     uniform float uAlphaMulti;
     uniform float uNoiseScale;
-    uniform float uPointOffset;
     uniform float uPointRadiusMulti;
     uniform float uSaturateOffset;
     uniform float uLightOffset;
-    uniform float uAlphaOffset;
-    uniform float uShadowColorMulti;
-    uniform float uShadowColorOffset;
-    uniform float uShadowNoiseScale;
-    uniform float uShadowOffset;
 
     vec3 rgb2hsv(vec3 c) {
         vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -331,12 +323,11 @@ private const val ABOUT_CARD_BG_FRAG = """
     }
 
     float perlin(vec2 x) {
-        vec2 i = floor(x);
-        vec2 f = fract(x);
-        float a = hash(i);
-        float b = hash(i + vec2(1.0, 0.0));
-        float c = hash(i + vec2(0.0, 1.0));
-        float d = hash(i + vec2(1.0, 1.0));
+        vec2 i = floor(x); vec2 f = fract(x);
+
+        float a = hash(i); float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0)); float d = hash(i + vec2(1.0, 1.0));
+
         vec2 u = f * f * (3.0 - 2.0 * f);
         return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
     }
@@ -346,44 +337,39 @@ private const val ABOUT_CARD_BG_FRAG = """
     }
 
     vec4 main(vec2 fragCoord){
-        vec2 vUv = fragCoord / uResolution;
-        vUv.y = 1.0 - vUv.y;
+        vec2 vUv = fragCoord/uResolution;
+        vUv.y = 1.0-vUv.y;
         vec2 uv = vUv;
         uv -= vec2(0., uTranslateY);
         uv.xy -= uBound.xy;
         uv.xy /= uBound.zw;
 
-        vec3 hsv;
         vec4 color = vec4(0.0);
         float noiseValue = perlin(vUv * uNoiseScale + vec2(-uAnimTime, -uAnimTime));
 
         for (int i = 0; i < 4; i++){
             vec4 pointColor = uColors[i];
             pointColor.rgb *= pointColor.a;
-            vec2 point = uPoints[i].xy;
+            vec2 point = uPointsAnim[i];
             float rad = uPoints[i].z * uPointRadiusMulti;
-
-            point.x += sin(uAnimTime + point.y) * uPointOffset;
-            point.y += cos(uAnimTime + point.x) * uPointOffset;
 
             float d = distance(uv, point);
             float pct = smoothstep(rad, 0., d);
-
             color.rgb = mix(color.rgb, pointColor.rgb, pct);
             color.a = mix(color.a, pointColor.a, pct);
         }
 
         float oppositeNoise = smoothstep(0., 1., noiseValue);
         color.rgb /= color.a;
-        hsv = rgb2hsv(color.rgb);
+        vec3 hsv = rgb2hsv(color.rgb);
         hsv.y = mix(hsv.y, 0.0, oppositeNoise * uSaturateOffset);
         color.rgb = hsv2rgb(hsv);
         color.rgb += oppositeNoise * uLightOffset;
 
         color.a = clamp(color.a, 0., 1.);
         color.a *= uAlphaMulti;
-        color += (1.0 / 255.0) * gradientNoise(fragCoord.xy) - (0.5 / 255.0);
 
+        color += (10.0 / 255.0) * gradientNoise(fragCoord.xy) - (5.0 / 255.0);
         return vec4(color.rgb * color.a, color.a);
     }
 """
