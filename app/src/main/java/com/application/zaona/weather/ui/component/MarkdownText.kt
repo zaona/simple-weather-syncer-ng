@@ -38,7 +38,6 @@ fun MarkdownText(
         modifier = modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(top = 8.dp, bottom = 24.dp)
     ) {
         val lines = markdown.split("\n")
         for (i in lines.indices) {
