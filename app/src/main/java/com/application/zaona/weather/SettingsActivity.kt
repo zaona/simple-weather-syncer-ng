@@ -78,6 +78,7 @@ class SettingsActivity : ComponentActivity() {
 
                 var advancedSyncMode by remember { mutableStateOf(true) }
                 var themeModeIndex by remember { mutableStateOf(0) }
+                var dynamicColorEnabled by remember { mutableStateOf(false) }
 
                 // Hoisted update state
                 val showUpdateDialog = remember { mutableStateOf(false) }
@@ -97,6 +98,7 @@ class SettingsActivity : ComponentActivity() {
                         "dark" -> 2
                         else -> 0
                     }
+                    dynamicColorEnabled = prefs.getBoolean("dynamic_color_enabled", false)
                     prefs.edit()
                         .remove("use_custom_api")
                         .remove("custom_api_host")
@@ -175,6 +177,16 @@ class SettingsActivity : ComponentActivity() {
                                             else -> "system"
                                         }
                                         prefs.edit().putString("theme_mode", modeValue).apply()
+                                    }
+                                )
+                                SwitchPreference(
+                                    title = "动态取色",
+                                    summary = "从壁纸提取颜色并应用到主题",
+                                    checked = dynamicColorEnabled,
+                                    onCheckedChange = {
+                                        dynamicColorEnabled = it
+                                        val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                        prefs.edit().putBoolean("dynamic_color_enabled", it).apply()
                                     }
                                 )
                                 ArrowPreference(

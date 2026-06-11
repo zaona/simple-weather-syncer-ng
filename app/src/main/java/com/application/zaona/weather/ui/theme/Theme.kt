@@ -24,17 +24,20 @@ fun SimpleweathersyncerngTheme(
 ) {
     val context = LocalContext.current
     var themeMode by remember { mutableStateOf("system") }
+    var dynamicColorEnabled by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
         themeMode = prefs.getString("theme_mode", "system") ?: "system"
+        dynamicColorEnabled = prefs.getBoolean("dynamic_color_enabled", false)
     }
 
     DisposableEffect(context) {
         val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPrefs, key ->
-            if (key == "theme_mode") {
-                themeMode = sharedPrefs.getString("theme_mode", "system") ?: "system"
+            when (key) {
+                "theme_mode" -> themeMode = sharedPrefs.getString("theme_mode", "system") ?: "system"
+                "dynamic_color_enabled" -> dynamicColorEnabled = sharedPrefs.getBoolean("dynamic_color_enabled", false)
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -49,11 +52,19 @@ fun SimpleweathersyncerngTheme(
         else -> isSystemInDarkTheme()
     }
 
-    val controller = remember(themeMode) {
-        when (themeMode) {
-            "light" -> ThemeController(ColorSchemeMode.System, isDark = false)
-            "dark" -> ThemeController(ColorSchemeMode.System, isDark = true)
-            else -> ThemeController(ColorSchemeMode.System)
+    val controller = remember(themeMode, dynamicColorEnabled) {
+        if (dynamicColorEnabled) {
+            when (themeMode) {
+                "light" -> ThemeController(ColorSchemeMode.MonetLight)
+                "dark" -> ThemeController(ColorSchemeMode.MonetDark)
+                else -> ThemeController(ColorSchemeMode.MonetSystem)
+            }
+        } else {
+            when (themeMode) {
+                "light" -> ThemeController(ColorSchemeMode.System, isDark = false)
+                "dark" -> ThemeController(ColorSchemeMode.System, isDark = true)
+                else -> ThemeController(ColorSchemeMode.System)
+            }
         }
     }
 

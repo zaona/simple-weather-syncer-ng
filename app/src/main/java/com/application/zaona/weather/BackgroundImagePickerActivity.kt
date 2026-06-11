@@ -723,8 +723,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         ) {
                             Icon(
                                 imageVector = MiuixIcons.Send,
-                                contentDescription = "同步到手表",
-                                tint = Color.White
+                                contentDescription = "同步到手表"
                             )
                         }
                     },

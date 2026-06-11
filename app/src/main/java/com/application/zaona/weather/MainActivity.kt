@@ -829,7 +829,7 @@ class MainActivity : ComponentActivity() {
                                         },
                                         colors = ButtonDefaults.buttonColorsPrimary()
                                         ) {
-                                            Text("同步数据", color = Color.White)
+                                            Text("同步数据")
                                         }
 
                                     Spacer(modifier = Modifier.height(16.dp))

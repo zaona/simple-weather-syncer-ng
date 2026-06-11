@@ -141,7 +141,7 @@ class SponsorActivity : ComponentActivity() {
                                 },
                                 colors = ButtonDefaults.buttonColorsPrimary()
                             ) {
-                                Text("前往赞助", color = Color.White)
+                                Text("前往赞助")
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
