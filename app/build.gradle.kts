@@ -18,7 +18,7 @@ android {
         applicationId = "com.application.zaona.weather"
         minSdk = 24
         targetSdk = 36
-        versionCode = 18
+        versionCode = 19
         versionName = "2.4.1"
 
         val weatherLocalProps = Properties().apply {
