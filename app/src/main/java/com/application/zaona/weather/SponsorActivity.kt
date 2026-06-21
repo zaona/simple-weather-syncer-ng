@@ -19,7 +19,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -48,6 +47,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.union
 import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 import androidx.lifecycle.lifecycleScope
@@ -178,7 +178,7 @@ class SponsorActivity : ComponentActivity() {
                                         ) {
                                             Text(
                                                 text = errorMessage ?: "未知错误",
-                                                color = Color.Red,
+                                                color = MiuixTheme.colorScheme.error,
                                             )
                                         }
                                     }
@@ -203,7 +203,8 @@ class SponsorActivity : ComponentActivity() {
                                 ) {
                                     Text(
                                         text = "数据更新于: $updatedAt",
-                                        color = Color.Gray
+                                        style = MiuixTheme.textStyles.body2,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                                     )
                                 }
                             }
