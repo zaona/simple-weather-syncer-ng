@@ -31,7 +31,7 @@ fun DynamicCardBackground(
     content: @Composable (BoxScope.() -> Unit) = {},
 ) {
     val shaderSupported = remember { isRuntimeShaderSupported() }
-    val surface = MiuixTheme.colorScheme.surface
+    val surface = MiuixTheme.colorScheme.surfaceContainer
     val isDark = surface.luminance() < 0.5f
     val preset = remember(isDark) { DynamicCardBackgroundConfig.get(isDark) }
     val painter = if (shaderSupported) remember { DynamicCardBackgroundPainter() } else null
