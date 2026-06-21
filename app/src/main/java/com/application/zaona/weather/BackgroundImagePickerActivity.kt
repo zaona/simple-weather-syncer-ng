@@ -723,7 +723,8 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         ) {
                             Icon(
                                 imageVector = MiuixIcons.Send,
-                                contentDescription = "同步到手表"
+                                contentDescription = "同步到手表",
+                                tint = MiuixTheme.colorScheme.onPrimary
                             )
                         }
                     },
@@ -1323,7 +1324,7 @@ private fun BackgroundImageItem(
                         .padding(end = 8.dp)
                         .size(48.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(MiuixTheme.colorScheme.disabledSecondary),
+                        .background(MiuixTheme.colorScheme.secondaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     if (thumbnail != null) {
@@ -1337,7 +1338,7 @@ private fun BackgroundImageItem(
                         Icon(
                             imageVector = MiuixIcons.Backup,
                             contentDescription = "默认",
-                            tint = Color(0xFFBBBBBB),
+                            tint = MiuixTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(28.dp)
                         )
                     }
