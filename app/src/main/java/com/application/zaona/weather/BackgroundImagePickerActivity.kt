@@ -55,7 +55,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.application.zaona.weather.service.BackgroundPresetManager
-import com.application.zaona.weather.service.BrzAdapter
+
 import com.application.zaona.weather.service.ImageSyncManager
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import com.application.zaona.weather.ui.component.MarkdownText
@@ -199,7 +199,6 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 var importConfirmTitle by remember { mutableStateOf("确认导入") }
                 var importConfirmSummary by remember { mutableStateOf("") }
                 var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
-                var isBrzImport by remember { mutableStateOf(false) }
                 var showLoadingDialog by remember { mutableStateOf(false) }
                 var loadingMessage by remember { mutableStateOf("") }
                 var showResultDialog by remember { mutableStateOf(false) }
@@ -218,48 +217,28 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                 if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
                             }
                         }.getOrNull()
-                        val isBrz = fileName?.endsWith(".brz") == true
                         if (fileName != null &&
-                            !fileName.endsWith(BackgroundPresetManager.FILE_EXTENSION) &&
-                            !isBrz) {
+                            !fileName.endsWith(BackgroundPresetManager.FILE_EXTENSION)) {
                             resultTitle = "导入失败"
-                            resultSummary = "请选择 .swbg 或 .brz 格式的预设包文件"
+                            resultSummary = "请选择 .swbg 格式的预设包文件"
                             showResultDialog = true
                             return@rememberLauncherForActivityResult
                         }
 
-                        isBrzImport = isBrz
                         scope.launch {
                             loadingMessage = "正在解析预设包"
                             showLoadingDialog = true
-                            if (isBrz) {
-                                val result = BrzAdapter.peekBrzInfo(context, uri)
-                                showLoadingDialog = false
-                                if (result.isSuccess) {
-                                    pendingImportUri = uri
-                                    val manifest = result.getOrNull()
-                                    val name = manifest?.presetName ?: "BRZ 预设"
-                                    importConfirmTitle = "导入 BRZ 预设"
-                                    importConfirmSummary = "BRZ 预设包「$name」包含 ${manifest?.bindings?.size ?: 0} 个绑定配置，将映射导入到对应天气类型。若已有配置将被覆盖。确定继续吗？"
-                                    showImportConfirmDialog.value = true
-                                } else {
-                                    resultTitle = "导入失败"
-                                    resultSummary = result.exceptionOrNull()?.message ?: "未知错误"
-                                    showResultDialog = true
-                                }
+                            val result = BackgroundPresetManager.peekImportInfo(context, uri)
+                            showLoadingDialog = false
+                            if (result.isSuccess) {
+                                pendingImportUri = uri
+                                importConfirmTitle = "确认导入"
+                                importConfirmSummary = "预设包包含 ${result.getOrNull()?.presets?.size ?: 0} 张背景图，若已有配置将被覆盖。确定继续吗？"
+                                showImportConfirmDialog.value = true
                             } else {
-                                val result = BackgroundPresetManager.peekImportInfo(context, uri)
-                                showLoadingDialog = false
-                                if (result.isSuccess) {
-                                    pendingImportUri = uri
-                                    importConfirmTitle = "确认导入"
-                                    importConfirmSummary = "预设包包含 ${result.getOrNull()?.presets?.size ?: 0} 张背景图，若已有配置将被覆盖。确定继续吗？"
-                                    showImportConfirmDialog.value = true
-                                } else {
-                                    resultTitle = "导入失败"
-                                    resultSummary = result.exceptionOrNull()?.message ?: "未知错误"
-                                    showResultDialog = true
-                                }
+                                resultTitle = "导入失败"
+                                resultSummary = result.exceptionOrNull()?.message ?: "未知错误"
+                                showResultDialog = true
                             }
                         }
                     }
@@ -629,27 +608,10 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 fun performConfirmedImport() {
                     val uri = pendingImportUri ?: return
                     scope.launch {
-                        loadingMessage = if (isBrzImport) "正在转换 BRZ 预设包" else "正在导入预设包"
+                        loadingMessage = "正在导入预设包"
                         showLoadingDialog = true
-                        val importUri: Uri
-                        if (isBrzImport) {
-                            val converted = BrzAdapter.convertToSwbg(context, uri)
-                            if (converted.isFailure) {
-                                showLoadingDialog = false
-                                resultTitle = "导入失败"
-                                resultSummary = "转换失败: ${converted.exceptionOrNull()?.message ?: "未知错误"}"
-                                showResultDialog = true
-                                pendingImportUri = null
-                                isBrzImport = false
-                                return@launch
-                            }
-                            loadingMessage = "正在导入预设包"
-                            importUri = Uri.fromFile(converted.getOrThrow())
-                        } else {
-                            importUri = uri
-                        }
 
-                        val result = BackgroundPresetManager.performImport(context, importUri)
+                        val result = BackgroundPresetManager.performImport(context, uri)
                         showLoadingDialog = false
                         if (result.isSuccess) {
                             val count = result.getOrDefault(0)
@@ -672,7 +634,6 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             showResultDialog = true
                         }
                         pendingImportUri = null
-                        isBrzImport = false
                     }
                 }
 
@@ -1039,7 +1000,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
 配置好背景图后，点击右下角的发送按钮即可将所有背景图同步到手表端。同步过程中请不要操作手表。
 
 ## 导入 / 导出预设包
-点击右上角菜单可导入或导出 `.swbg` 格式的预设包，方便备份和分享。也支持从「微风天气」导入 `.brz` 格式的预设。
+点击右上角菜单可导入或导出 `.swbg` 格式的预设包，方便备份和分享。
 
 ## 分享预设包
 将当前所有背景配置打包分享给其他人，对方可直接导入使用。
@@ -1130,7 +1091,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         onDismissRequest = {
                             showImportConfirmDialog.value = false
                             pendingImportUri = null
-                            isBrzImport = false
+
                         }
                     ) {
                         Row(
@@ -1142,7 +1103,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                 onClick = {
                                     showImportConfirmDialog.value = false
                                     pendingImportUri = null
-                                    isBrzImport = false
+        
                                 },
                                 modifier = Modifier.weight(1f).fillMaxWidth()
                             )
