@@ -32,7 +32,6 @@ import com.application.zaona.weather.service.AnnouncementService
 import com.application.zaona.weather.ui.component.MarkdownText
 import com.application.zaona.weather.ui.theme.SimpleweathersyncerngTheme
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.whenStarted
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -88,19 +87,17 @@ class AnnouncementActivity : ComponentActivity() {
                     isLoading = true
                     errorMessage = null
                     lifecycleScope.launch {
-                        whenStarted {
-                            try {
-                                val result = AnnouncementService.fetchAnnouncements()
-                                announcements = result.announcements.filter { it.enabled }
-                                if (announcements.isEmpty()) {
-                                    errorMessage = "暂无公告"
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                errorMessage = "网络错误"
-                            } finally {
-                                isLoading = false
+                        try {
+                            val result = AnnouncementService.fetchAnnouncements()
+                            announcements = result.announcements.filter { it.enabled }
+                            if (announcements.isEmpty()) {
+                                errorMessage = "暂无公告"
                             }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            errorMessage = "网络错误"
+                        } finally {
+                            isLoading = false
                         }
                     }
                 }

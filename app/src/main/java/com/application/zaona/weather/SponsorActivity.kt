@@ -51,7 +51,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.whenStarted
 import kotlinx.coroutines.launch
 
 class SponsorActivity : ComponentActivity() {
@@ -76,22 +75,20 @@ class SponsorActivity : ComponentActivity() {
                     loadProgress = 0f
                     // Launch in a coroutine
                     lifecycleScope.launch {
-                        whenStarted {
-                            try {
-                                val result = SponsorService.fetchSponsors { progress ->
-                                    loadProgress = progress
-                                }
-                                sponsors = result.sponsors
-                                updatedAt = result.updatedAt
-                                if (sponsors.isEmpty()) {
-                                    errorMessage = "暂无赞助者数据"
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                errorMessage = "网络错误"
-                            } finally {
-                                isLoading = false
+                        try {
+                            val result = SponsorService.fetchSponsors { progress ->
+                                loadProgress = progress
                             }
+                            sponsors = result.sponsors
+                            updatedAt = result.updatedAt
+                            if (sponsors.isEmpty()) {
+                                errorMessage = "暂无赞助者数据"
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            errorMessage = "网络错误"
+                        } finally {
+                            isLoading = false
                         }
                     }
                 }
