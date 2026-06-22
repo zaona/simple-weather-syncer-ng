@@ -360,7 +360,7 @@ private const val OS3_CARD_BG_FRAG = """
         }
 
         float oppositeNoise = smoothstep(0., 1., noiseValue);
-        color.rgb /= color.a;
+        color.rgb /= max(color.a, 0.0001);
         vec3 hsv = rgb2hsv(color.rgb);
         hsv.y = mix(hsv.y, 0.0, oppositeNoise * uSaturateOffset);
         color.rgb = hsv2rgb(hsv);
