@@ -126,8 +126,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 
+import com.application.zaona.weather.model.Announcement
+import com.application.zaona.weather.service.AnnouncementService
 import com.application.zaona.weather.service.DeviceReportService
 import com.application.zaona.weather.service.ImageSyncManager
+import com.application.zaona.weather.ui.component.MarkdownText
 
 class MainActivity : ComponentActivity() {
     private data class WatchInfoPayload(
@@ -193,6 +196,12 @@ class MainActivity : ComponentActivity() {
                 var watchStorageTotal by remember { mutableStateOf(0L) }
                 var watchStorageAvailable by remember { mutableStateOf(0L) }
                 var watchStorageTimestamp by remember { mutableStateOf<Long?>(null) }
+                val showAnnouncementDialog = remember { mutableStateOf(false) }
+                var announcementDialogTitle by remember { mutableStateOf("") }
+                var announcementDialogContent by remember { mutableStateOf("") }
+                var announcementDialogId by remember { mutableStateOf("") }
+                var pendingAnnouncements by remember { mutableStateOf<List<Announcement>>(emptyList()) }
+                var pendingAnnouncementIndex by remember { mutableIntStateOf(0) }
 
                 fun showLoadingDialog(title: String, summary: String) {
                     loadingDialogDismissJob?.cancel()
@@ -261,6 +270,48 @@ class MainActivity : ComponentActivity() {
                                 updateDownloadUrl = info.downloadUrl
                                 isForceUpdate = info.forceUpdate
                                 showUpdateDialog.value = true
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                    // Auto check for high-importance announcements
+                    launch {
+                        try {
+                            val data = AnnouncementService.fetchAnnouncements()
+                            val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                            val readIds = prefs.getStringSet("read_announcement_ids", emptySet()) ?: emptySet()
+
+                            val pm = context.packageManager
+                            val pi = pm.getPackageInfo(context.packageName, 0)
+                            val currentCode = if (android.os.Build.VERSION.SDK_INT >= 28) {
+                                (pi.longVersionCode and 0xFFFFFFFF).toInt()
+                            } else {
+                                @Suppress("DEPRECATION")
+                                pi.versionCode
+                            }
+                            val baseCode = when {
+                                currentCode >= 4000 -> currentCode - 4000
+                                currentCode >= 3000 -> currentCode - 3000
+                                currentCode >= 2000 -> currentCode - 2000
+                                currentCode >= 1000 -> currentCode - 1000
+                                else -> currentCode
+                            }
+
+                            val highImportance = data.announcements.filter { ann ->
+                                ann.enabled && ann.importance == "high" && ann.id !in readIds &&
+                                    (ann.versionCodeMin == null || baseCode >= ann.versionCodeMin) &&
+                                    (ann.versionCodeMax == null || baseCode <= ann.versionCodeMax)
+                            }
+
+                            if (highImportance.isNotEmpty()) {
+                                pendingAnnouncements = highImportance
+                                pendingAnnouncementIndex = 0
+                                val ann = highImportance.first()
+                                announcementDialogId = ann.id
+                                announcementDialogTitle = ann.title
+                                announcementDialogContent = ann.content
+                                showAnnouncementDialog.value = true
                             }
                         } catch (e: Exception) {
                             e.printStackTrace()
@@ -1211,6 +1262,48 @@ class MainActivity : ComponentActivity() {
                         onClick = { showWatchStorageDialog.value = false },
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+
+                // High-importance announcement dialog
+                // Helper: advance to next pending announcement or close
+                fun showNextAnnouncement(markCurrentAsRead: Boolean) {
+                    if (markCurrentAsRead) {
+                        val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                        val current = prefs.getStringSet("read_announcement_ids", emptySet())?.toMutableSet() ?: mutableSetOf()
+                        current.add(announcementDialogId)
+                        prefs.edit().putStringSet("read_announcement_ids", current).apply()
+                    }
+                    val nextIndex = pendingAnnouncementIndex + 1
+                    if (nextIndex < pendingAnnouncements.size) {
+                        pendingAnnouncementIndex = nextIndex
+                        val ann = pendingAnnouncements[nextIndex]
+                        announcementDialogId = ann.id
+                        announcementDialogTitle = ann.title
+                        announcementDialogContent = ann.content
+                    } else {
+                        showAnnouncementDialog.value = false
+                    }
+                }
+
+                WindowDialog(
+                    title = announcementDialogTitle,
+                    show = showAnnouncementDialog.value,
+                    onDismissRequest = { showNextAnnouncement(markCurrentAsRead = false) }
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        MarkdownText(
+                            markdown = announcementDialogContent,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TextButton(
+                            text = "已读",
+                            onClick = { showNextAnnouncement(markCurrentAsRead = true) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }

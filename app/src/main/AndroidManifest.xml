@@ -49,6 +49,11 @@
             android:exported="false"
             android:label="自定义背景图"
             android:theme="@style/Theme.Simpleweathersyncerng" />
+        <activity
+            android:name=".AnnouncementActivity"
+            android:exported="false"
+            android:label="公告"
+            android:theme="@style/Theme.Simpleweathersyncerng" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

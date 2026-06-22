@@ -57,6 +57,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Notes
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -121,7 +122,20 @@ class SettingsActivity : ComponentActivity() {
                                     )
                                 }
                             },
-                            scrollBehavior = scrollBehavior
+                            scrollBehavior = scrollBehavior,
+                            actions = {
+                                IconButton(
+                                    onClick = {
+                                        val intent = Intent(context, AnnouncementActivity::class.java)
+                                        context.startActivity(intent)
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = MiuixIcons.Notes,
+                                        contentDescription = "公告"
+                                    )
+                                }
+                            }
                         )
                     }
                 ) { innerPadding ->
