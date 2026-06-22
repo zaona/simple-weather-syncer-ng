@@ -1418,13 +1418,14 @@ private fun SponsorPromoCard(
     onClick: () -> Unit,
 ) {
     val surface = MiuixTheme.colorScheme.surface
+    val containerColor = MiuixTheme.colorScheme.surfaceContainer
     val isDark = surface.luminance() < 0.5f
     val titleColor = MiuixTheme.colorScheme.onSurface
     val summaryColor = titleColor.copy(alpha = if (isDark) 0.78f else 0.72f)
     val overlayBrush = Brush.verticalGradient(
         colors = listOf(
-            surface.copy(alpha = if (isDark) 0.08f else 0.02f),
-            surface.copy(alpha = if (isDark) 0.28f else 0.14f),
+            containerColor.copy(alpha = if (isDark) 0.08f else 0.02f),
+            containerColor.copy(alpha = if (isDark) 0.28f else 0.14f),
         ),
     )
 
