@@ -764,7 +764,8 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Text(
                                             text = "压暗",
-                                            style = MiuixTheme.textStyles.body1
+                                            style = MiuixTheme.textStyles.body1,
+                                            color = MiuixTheme.colorScheme.onBackground
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(10.dp))
@@ -793,7 +794,8 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Text(
                                             text = "模糊",
-                                            style = MiuixTheme.textStyles.body1
+                                            style = MiuixTheme.textStyles.body1,
+                                            color = MiuixTheme.colorScheme.onBackground
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(10.dp))
@@ -822,7 +824,8 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Text(
                                             text = "画质",
-                                            style = MiuixTheme.textStyles.body1
+                                            style = MiuixTheme.textStyles.body1,
+                                            color = MiuixTheme.colorScheme.onBackground
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(10.dp))
