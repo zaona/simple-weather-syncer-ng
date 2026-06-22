@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -31,9 +32,24 @@ fun DynamicCardBackground(
     content: @Composable (BoxScope.() -> Unit) = {},
 ) {
     val shaderSupported = remember { isRuntimeShaderSupported() }
-    val surface = MiuixTheme.colorScheme.surfaceContainer
+    val colorScheme = MiuixTheme.colorScheme
+    val surface = colorScheme.surfaceContainer
     val isDark = surface.luminance() < 0.5f
-    val preset = remember(isDark) { DynamicCardBackgroundConfig.get(isDark) }
+    val isDynamic = MiuixTheme.isDynamicColor
+    val preset = remember(isDark, isDynamic, colorScheme.primary, colorScheme.secondary, colorScheme.tertiaryContainer) {
+        if (isDynamic) {
+            DynamicCardBackgroundConfig.monet(
+                primary = colorScheme.primary,
+                primaryContainer = colorScheme.primaryContainer,
+                secondary = colorScheme.secondary,
+                secondaryContainer = colorScheme.secondaryContainer,
+                tertiaryContainer = colorScheme.tertiaryContainer,
+                isDark = isDark,
+            )
+        } else {
+            DynamicCardBackgroundConfig.get(isDark)
+        }
+    }
     val painter = if (shaderSupported) remember { DynamicCardBackgroundPainter() } else null
     val frameTimeSeconds = rememberFrameTimeSeconds(animate)
     val colorStage = remember { Animatable(0f) }
@@ -285,6 +301,56 @@ private object DynamicCardBackgroundConfig {
     )
 
     fun get(isDark: Boolean): Config = if (isDark) os3PhoneDark else os3PhoneLight
+
+    fun monet(
+        primary: Color,
+        primaryContainer: Color,
+        secondary: Color,
+        secondaryContainer: Color,
+        tertiaryContainer: Color,
+        isDark: Boolean,
+    ): Config {
+        // Dark mode uses lower alpha to let the dark surface show through,
+        // matching the translucent-blob look of the original hardcoded dark config.
+        val aMul = if (isDark) 0.55f else 1.0f
+        val p = floatArrayOf(primary.red, primary.green, primary.blue, primary.alpha * aMul)
+        val pc = floatArrayOf(primaryContainer.red, primaryContainer.green, primaryContainer.blue, primaryContainer.alpha * aMul)
+        val s = floatArrayOf(secondary.red, secondary.green, secondary.blue, secondary.alpha * aMul)
+        val sc = floatArrayOf(secondaryContainer.red, secondaryContainer.green, secondaryContainer.blue, secondaryContainer.alpha * aMul)
+        val tc = floatArrayOf(tertiaryContainer.red, tertiaryContainer.green, tertiaryContainer.blue, tertiaryContainer.alpha * aMul)
+
+        // Build 3 color sets for the animation cycle.
+        // colors2 is the base (used at cycle indices 0 and 2), colors1 and colors3 are variations.
+        val colors1 = floatArrayOf(
+            p[0], p[1], p[2], p[3],
+            sc[0], sc[1], sc[2], sc[3],
+            tc[0], tc[1], tc[2], tc[3],
+            pc[0], pc[1], pc[2], pc[3],
+        )
+        val colors2 = floatArrayOf(
+            pc[0], pc[1], pc[2], pc[3],
+            s[0], s[1], s[2], s[3],
+            p[0], p[1], p[2], p[3],
+            tc[0], tc[1], tc[2], tc[3],
+        )
+        val colors3 = floatArrayOf(
+            tc[0], tc[1], tc[2], tc[3],
+            p[0], p[1], p[2], p[3],
+            sc[0], sc[1], sc[2], sc[3],
+            s[0], s[1], s[2], s[3],
+        )
+
+        return Config(
+            points = floatArrayOf(0.8f, 0.2f, 1.0f, 0.8f, 0.9f, 1.0f, 0.2f, 0.9f, 1.0f, 0.2f, 0.2f, 1.0f),
+            colors1 = colors1,
+            colors2 = colors2,
+            colors3 = colors3,
+            colorInterpPeriod = if (isDark) 8.0f else 5.0f,
+            lightOffset = if (isDark) 0.0f else 0.1f,
+            saturateOffset = if (isDark) 0.17f else 0.2f,
+            pointOffset = if (isDark) 0.4f else 0.2f,
+        )
+    }
 }
 
 private const val OS3_CARD_BG_FRAG = """
