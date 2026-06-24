@@ -252,7 +252,7 @@ class SettingsActivity : ComponentActivity() {
                                     title = "帮助文档",
                                     summary = "操作步骤与常见问题解答",
                                     onClick = {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.yuque.com/zaona/weather"))
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://weather.zaona.top/"))
                                         context.startActivity(intent)
                                     }
                                 )
