@@ -144,7 +144,14 @@ class SettingsActivity : ComponentActivity() {
                     ) {
                         val currentVersion = remember {
                             try {
-                                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                                val pkgInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                                val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                    pkgInfo.longVersionCode
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    pkgInfo.versionCode.toLong()
+                                }
+                                "${pkgInfo.versionName} ($versionCode)"
                             } catch (e: Exception) {
                                 "1.0"
                             }
