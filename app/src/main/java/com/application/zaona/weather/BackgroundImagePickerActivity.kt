@@ -989,9 +989,10 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 28.dp, end = 28.dp, top = 8.dp, bottom = 28.dp)
+                                .padding(start = 28.dp, end = 28.dp, top = 8.dp)
                         ) {
                             MarkdownText(
+                                modifier = Modifier.padding(bottom = 28.dp),
                                 markdown = """
 ## 选择背景图
 点击每种天气类型右侧的 + 按钮，从相册中选择一张图片作为该天气的自定义背景。支持 12 种天气类型，每种可单独设置。
