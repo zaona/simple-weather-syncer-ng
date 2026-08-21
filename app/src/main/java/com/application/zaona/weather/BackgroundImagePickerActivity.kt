@@ -992,7 +992,6 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                 .padding(start = 28.dp, end = 28.dp, top = 8.dp)
                         ) {
                             MarkdownText(
-                                modifier = Modifier.padding(bottom = 28.dp),
                                 markdown = """
 ## 选择背景图
 点击每种天气类型右侧的 + 按钮，从相册中选择一张图片作为该天气的自定义背景。支持 12 种天气类型，每种可单独设置。
@@ -1017,7 +1016,8 @@ class BackgroundImagePickerActivity : ComponentActivity() {
 
 ## 清除背景图
 若所有天气都未选图，点击同步按钮会弹出清除确认，可将手表端已存储的自定义背景图全部清除，恢复默认背景。
-                                """.trimIndent()
+                                """.trimIndent(),
+                                bottomPadding = 28.dp
                             )
                         }
                     }
