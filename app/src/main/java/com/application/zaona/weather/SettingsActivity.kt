@@ -80,6 +80,7 @@ class SettingsActivity : ComponentActivity() {
                 var advancedSyncMode by remember { mutableStateOf(true) }
                 var themeModeIndex by remember { mutableStateOf(0) }
                 var dynamicColorEnabled by remember { mutableStateOf(false) }
+                var homeButtonIndex by remember { mutableStateOf(0) }
 
                 // Hoisted update state
                 val showUpdateDialog = remember { mutableStateOf(false) }
@@ -100,6 +101,7 @@ class SettingsActivity : ComponentActivity() {
                         else -> 0
                     }
                     dynamicColorEnabled = prefs.getBoolean("dynamic_color_enabled", false)
+                    homeButtonIndex = if (prefs.getString("home_button_mode", "sync") == "copy") 1 else 0
                     prefs.edit()
                         .remove("use_custom_api")
                         .remove("custom_api_host")
@@ -175,6 +177,7 @@ class SettingsActivity : ComponentActivity() {
                                     .padding(bottom = 12.dp)
                             ) {
                                 val themeModeOptions = listOf("跟随系统", "浅色", "深色")
+                                val homeButtonOptions = listOf("同步数据", "复制数据")
                                 SwitchPreference(
                                     title = "高级同步模式",
                                     summary = "启用后先启动应用并握手",
@@ -183,6 +186,16 @@ class SettingsActivity : ComponentActivity() {
                                         advancedSyncMode = it
                                         val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                                         prefs.edit().putBoolean("advanced_sync_mode", it).apply()
+                                    }
+                                )
+                                SwitchPreference(
+                                    title = "动态取色",
+                                    summary = "从壁纸提取颜色并应用到主题",
+                                    checked = dynamicColorEnabled,
+                                    onCheckedChange = {
+                                        dynamicColorEnabled = it
+                                        val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                        prefs.edit().putBoolean("dynamic_color_enabled", it).apply()
                                     }
                                 )
                                 OverlayDropdownPreference(
@@ -200,14 +213,14 @@ class SettingsActivity : ComponentActivity() {
                                         prefs.edit().putString("theme_mode", modeValue).apply()
                                     }
                                 )
-                                SwitchPreference(
-                                    title = "动态取色",
-                                    summary = "从壁纸提取颜色并应用到主题",
-                                    checked = dynamicColorEnabled,
-                                    onCheckedChange = {
-                                        dynamicColorEnabled = it
+                                OverlayDropdownPreference(
+                                    title = "首页按钮功能",
+                                    items = homeButtonOptions,
+                                    selectedIndex = homeButtonIndex,
+                                    onSelectedIndexChange = {
+                                        homeButtonIndex = it
                                         val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                                        prefs.edit().putBoolean("dynamic_color_enabled", it).apply()
+                                        prefs.edit().putString("home_button_mode", if (it == 1) "copy" else "sync").apply()
                                     }
                                 )
                                 ArrowPreference(
@@ -288,7 +301,7 @@ class SettingsActivity : ComponentActivity() {
                                 )
                                 BasicComponent(
                                     title = "xinghengCN",
-                                    summary = "为作者提供米环9和9pro供测试",
+                                    summary = "为作者提供米环9和9Pro供测试",
                                     onClick = { /* Optional: Link to profile */ }
                                 )
                             }

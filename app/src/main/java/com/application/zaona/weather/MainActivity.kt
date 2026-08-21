@@ -600,11 +600,15 @@ class MainActivity : ComponentActivity() {
                                     checkConnection()
                                 }
 
+                                var homeButtonMode by remember { mutableStateOf("sync") }
+
                                 val lifecycleOwner = LocalLifecycleOwner.current
                                 DisposableEffect(lifecycleOwner) {
                                     val observer = LifecycleEventObserver { _, event ->
                                         if (event == Lifecycle.Event.ON_RESUME) {
                                             checkConnection()
+                                            val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                            homeButtonMode = prefs.getString("home_button_mode", "sync") ?: "sync"
                                         }
                                     }
                                     lifecycleOwner.lifecycle.addObserver(observer)
@@ -627,6 +631,7 @@ class MainActivity : ComponentActivity() {
                                     selectedSyncDaysIndex = prefs.getInt("sync_days_index", 1)
                                     syncHourlyWeather = prefs.getBoolean("sync_hourly_weather", true)
                                     syncAlertData = prefs.getBoolean("sync_alert_data", true)
+                                    homeButtonMode = prefs.getString("home_button_mode", "sync") ?: "sync"
                                     currentLocation = prefs.getString("selected_location_name", "未设置") ?: "未设置"
                                     val locationJson = prefs.getString("selected_location_json", null)
                                     if (locationJson != null) {
@@ -756,132 +761,117 @@ class MainActivity : ComponentActivity() {
                                                 return@Button
                                             }
 
-                                            scope.launch {
-                                                try {
-                                                    showLoadingDialog(
-                                                        title = "正在获取",
-                                                        summary = "正在获取天气数据..."
-                                                    )
+                                            if (homeButtonMode == "copy") {
+                                                scope.launch {
+                                                    try {
+                                                        showLoadingDialog(
+                                                            title = "正在获取",
+                                                            summary = "正在获取天气数据..."
+                                                        )
 
-                                                    val days = when(selectedSyncDaysIndex) {
-                                                        0 -> "3d"
-                                                        1 -> "7d"
-                                                        2 -> "10d"
-                                                        3 -> "15d"
-                                                        4 -> "30d"
-                                                        else -> "3d"
-                                                    }
-                                                    val jsonString = WeatherService.fetchWeatherData(
-                                                        context,
-                                                        selectedCityLocation!!.id,
-                                                        days,
-                                                        selectedCityLocation!!.name,
-                                                        syncHourlyWeather,
-                                                        syncAlertData
-                                                    )
+                                                        val days = when(selectedSyncDaysIndex) {
+                                                            0 -> "3d"
+                                                            1 -> "7d"
+                                                            2 -> "10d"
+                                                            3 -> "15d"
+                                                            4 -> "30d"
+                                                            else -> "3d"
+                                                        }
+                                                        val jsonString = WeatherService.fetchWeatherData(
+                                                            context,
+                                                            selectedCityLocation!!.id,
+                                                            days,
+                                                            selectedCityLocation!!.name,
+                                                            syncHourlyWeather,
+                                                            syncAlertData
+                                                        )
 
-                                                    hideLoadingDialog {
-                                                        weatherDataPreview = jsonString
-                                                        showWeatherDataDialog.value = true
+                                                        hideLoadingDialog {
+                                                            weatherDataPreview = jsonString
+                                                            showWeatherDataDialog.value = true
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        showMessageDialog("获取失败", e.message ?: "未知错误")
                                                     }
-                                                } catch (e: Exception) {
-                                                    showMessageDialog("获取失败", e.message ?: "未知错误")
                                                 }
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors()
-                                    ) {
-                                        Text("复制数据")
-                                    }
+                                            } else {
+                                                if (!isConnected || nodeId.isEmpty()) {
+                                                    showMessageDialog("提示", "请先连接设备")
+                                                    return@Button
+                                                }
 
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                                scope.launch {
+                                                    try {
+                                                        showLoadingDialog(
+                                                            title = "正在检查",
+                                                            summary = "正在检查手表应用安装状态..."
+                                                        )
 
-                                    Button(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp),
-                                        onClick = {
-                                            if (selectedCityLocation == null) {
-                                                showMessageDialog("提示", "请先设置位置")
-                                                return@Button
-                                            }
-
-                                            if (!isConnected || nodeId.isEmpty()) {
-                                                showMessageDialog("提示", "请先连接设备")
-                                                return@Button
-                                            }
-                                            
-                                            scope.launch {
-                                                try {
-                                                    showLoadingDialog(
-                                                        title = "正在检查",
-                                                        summary = "正在检查手表应用安装状态..."
-                                                    )
-                                                    
-                                                    val isInstalled = checkWatchAppInstalled(nodeApi, nodeId)
-                                                    if (!isInstalled) {
-                                                        showMessageDialog("提示", "手表端未安装应用，请先安装")
+                                                        val isInstalled = checkWatchAppInstalled(nodeApi, nodeId)
+                                                        if (!isInstalled) {
+                                                            showMessageDialog("提示", "手表端未安装应用，请先安装")
+                                                            return@launch
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        val msg = e.message ?: ""
+                                                        if (msg.contains("permission denied", ignoreCase = true)) {
+                                                            hideLoadingDialog { showPermissionDeniedDialog.value = true }
+                                                        } else {
+                                                            showMessageDialog("检查失败", msg.ifEmpty { "未知错误" })
+                                                        }
                                                         return@launch
                                                     }
-                                                } catch (e: Exception) {
-                                                    val msg = e.message ?: ""
-                                                    if (msg.contains("permission denied", ignoreCase = true)) {
-                                                        hideLoadingDialog { showPermissionDeniedDialog.value = true }
-                                                    } else {
-                                                        showMessageDialog("检查失败", msg.ifEmpty { "未知错误" })
-                                                    }
-                                                    return@launch
-                                                }
 
-                                                val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
-                                                val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
-                                                try {
-                                                    showLoadingDialog(
-                                                        title = "正在同步",
-                                                        summary = "正在获取天气数据..."
-                                                    )
-                                                    
-                                                    val days = when(selectedSyncDaysIndex) {
-                                                        0 -> "3d"
-                                                        1 -> "7d"
-                                                        2 -> "10d"
-                                                        3 -> "15d"
-                                                        4 -> "30d"
-                                                        else -> "3d"
-                                                    }
-                                                    val jsonString = WeatherService.fetchWeatherData(
-                                                        context,
-                                                        selectedCityLocation!!.id,
-                                                        days,
-                                                        selectedCityLocation!!.name,
-                                                        syncHourlyWeather,
-                                                        syncAlertData
-                                                    )
+                                                    val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                                    val advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
+                                                    try {
+                                                        showLoadingDialog(
+                                                            title = "正在同步",
+                                                            summary = "正在获取天气数据..."
+                                                        )
 
-                                                    if (advancedSyncMode) {
-                                                        updateLoadingDialog(summary = "正在启动应用并握手...")
-                                                        performWatchHandshake(nodeApi, messageApi, nodeId)
-                                                    }
-
-                                                    updateLoadingDialog(summary = "正在发送数据到设备...")
-                                                    
-                                                    messageApi.sendMessage(nodeId, jsonString.toByteArray())
-                                                        .addOnSuccessListener {
-                                                            showMessageDialog("同步成功", "天气数据已发送到设备")
+                                                        val days = when(selectedSyncDaysIndex) {
+                                                            0 -> "3d"
+                                                            1 -> "7d"
+                                                            2 -> "10d"
+                                                            3 -> "15d"
+                                                            4 -> "30d"
+                                                            else -> "3d"
                                                         }
-                                                        .addOnFailureListener { e ->
-                                                            showMessageDialog("发送失败", e.message ?: "未知错误")
+                                                        val jsonString = WeatherService.fetchWeatherData(
+                                                            context,
+                                                            selectedCityLocation!!.id,
+                                                            days,
+                                                            selectedCityLocation!!.name,
+                                                            syncHourlyWeather,
+                                                            syncAlertData
+                                                        )
+
+                                                        if (advancedSyncMode) {
+                                                            updateLoadingDialog(summary = "正在启动应用并握手...")
+                                                            performWatchHandshake(nodeApi, messageApi, nodeId)
                                                         }
-                                                    
-                                                } catch (e: Exception) {
-                                                    showMessageDialog("获取失败", e.message ?: "未知错误")
+
+                                                        updateLoadingDialog(summary = "正在发送数据到设备...")
+
+                                                        messageApi.sendMessage(nodeId, jsonString.toByteArray())
+                                                            .addOnSuccessListener {
+                                                                showMessageDialog("同步成功", "天气数据已发送到设备")
+                                                            }
+                                                            .addOnFailureListener { e ->
+                                                                showMessageDialog("发送失败", e.message ?: "未知错误")
+                                                            }
+
+                                                    } catch (e: Exception) {
+                                                        showMessageDialog("获取失败", e.message ?: "未知错误")
+                                                    }
                                                 }
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColorsPrimary()
-                                        ) {
-                                            Text("同步数据")
-                                        }
+                                    ) {
+                                        Text(if (homeButtonMode == "copy") "复制数据" else "同步数据")
+                                    }
 
                                     Spacer(modifier = Modifier.height(16.dp))
 
