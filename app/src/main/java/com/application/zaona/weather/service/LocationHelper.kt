@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import android.os.Bundle
 import android.os.Looper
 import androidx.core.app.ActivityCompat
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -64,7 +63,6 @@ class LocationHelper(private val context: Context) {
                         }
                     }
 
-                    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
                     override fun onProviderEnabled(provider: String) {}
                     override fun onProviderDisabled(provider: String) {
                         // Don't fail immediately if one provider is disabled, wait for others or timeout
@@ -75,8 +73,10 @@ class LocationHelper(private val context: Context) {
                     var requested = false
                     // Prefer Network provider for speed and indoor usage
                     if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                        locationManager.requestSingleUpdate(
+                        locationManager.requestLocationUpdates(
                             LocationManager.NETWORK_PROVIDER,
+                            0L,
+                            0f,
                             locationListener,
                             Looper.getMainLooper()
                         )
@@ -84,8 +84,10 @@ class LocationHelper(private val context: Context) {
                     } 
                     
                     if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                        locationManager.requestSingleUpdate(
+                        locationManager.requestLocationUpdates(
                             LocationManager.GPS_PROVIDER,
+                            0L,
+                            0f,
                             locationListener,
                             Looper.getMainLooper()
                         )
