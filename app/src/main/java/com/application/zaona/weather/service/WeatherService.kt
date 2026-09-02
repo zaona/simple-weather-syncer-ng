@@ -23,6 +23,7 @@ object WeatherService {
     private val apiKey = BuildConfig.WEATHER_API_KEY
     private const val PREFS_NAME = "weather_prefs"
     private const val KEY_RECENT_SEARCHES = "weather_recent_searches"
+    private const val KEY_USE_V1_API = "use_v1_api"
     private const val MAX_RECENT_SEARCHES = 10
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
@@ -90,8 +91,13 @@ object WeatherService {
         syncHourly: Boolean,
         syncAlerts: Boolean = false,
     ): String {
+        val useV1Api = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_USE_V1_API, false)
         val payload = JsonObject().apply {
             addProperty("locationId", locationId)
+            if (useV1Api) {
+                addProperty("apiVersion", "v1")
+            }
             add("modules", JsonObject().apply {
                 addProperty("daily", days)
                 if (syncHourly) {

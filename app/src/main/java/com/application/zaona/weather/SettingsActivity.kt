@@ -78,6 +78,7 @@ class SettingsActivity : ComponentActivity() {
                 val scrollBehavior = MiuixScrollBehavior(state = topBarState)
 
                 var advancedSyncMode by remember { mutableStateOf(true) }
+                var useV1Api by remember { mutableStateOf(false) }
                 var themeModeIndex by remember { mutableStateOf(0) }
                 var dynamicColorEnabled by remember { mutableStateOf(false) }
                 var homeButtonIndex by remember { mutableStateOf(0) }
@@ -95,6 +96,7 @@ class SettingsActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                     advancedSyncMode = prefs.getBoolean("advanced_sync_mode", true)
+                    useV1Api = prefs.getBoolean("use_v1_api", false)
                     themeModeIndex = when (prefs.getString("theme_mode", "system")) {
                         "light" -> 1
                         "dark" -> 2
@@ -186,6 +188,15 @@ class SettingsActivity : ComponentActivity() {
                                         advancedSyncMode = it
                                         val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
                                         prefs.edit().putBoolean("advanced_sync_mode", it).apply()
+                                    }
+                                )
+                                SwitchPreference(
+                                    title = "新版天气数据接口",
+                                    checked = useV1Api,
+                                    onCheckedChange = {
+                                        useV1Api = it
+                                        val prefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
+                                        prefs.edit().putBoolean("use_v1_api", it).apply()
                                     }
                                 )
                                 SwitchPreference(
