@@ -11,7 +11,7 @@
 local.properties
 weather.local.properties
 
-miuix-main
+miuix-0.9.4
 xms-wearable-sdk
 key.properties
 app/simple-weather-release-key.jks
