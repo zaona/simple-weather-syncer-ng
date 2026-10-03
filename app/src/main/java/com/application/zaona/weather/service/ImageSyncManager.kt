@@ -206,7 +206,30 @@ object ImageSyncManager {
     }
 
     /**
-     * 发送单张图片到手表
+     * 手表端主动取消传输时抛出的异常
+     */
+    class WatchCancelException(message: String = "手表端已取消传输") : Exception(message)
+
+    /**
+     * 通知手表端取消当前传输
+     */
+    suspend fun cancelTransfer(
+        messageApi: MessageApi,
+        nodeId: String
+    ): Result<Unit> {
+        return try {
+            val json = JSONObject().apply { put("type", "cancel") }
+            sendMessageRaw(messageApi, nodeId, json.toString())
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * 发送单张图片到手表。
+     * 画质固定为 RGB_565，以尽量减小传输体积。
+     * 传输过程中若收到手表 cancel，立即中止。
      */
     suspend fun sendImage(
         messageApi: MessageApi,
@@ -216,21 +239,14 @@ object ImageSyncManager {
         current: Int = 0,
         total: Int = 0,
         label: String = "",
-        quality: Int = 85,
         onChunkProgress: ((sent: Int, totalChunks: Int) -> Unit)? = null
     ): Result<Unit> {
         return try {
-            // 低画质时降色深到 RGB_565 以减小 PNG 体积
-            val compressedBitmap = if (quality < 100) {
-                val rgb565 = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.RGB_565)
-                val canvas = android.graphics.Canvas(rgb565)
-                canvas.drawBitmap(bitmap, 0f, 0f, null)
-                rgb565
-            } else {
-                bitmap
-            }
+            val rgb565 = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.RGB_565)
+            val canvas = android.graphics.Canvas(rgb565)
+            canvas.drawBitmap(bitmap, 0f, 0f, null)
             val baos = ByteArrayOutputStream()
-            compressedBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+            rgb565.compress(Bitmap.CompressFormat.PNG, 100, baos)
             val data = baos.toByteArray()
 
             val totalSize = data.size
@@ -238,49 +254,56 @@ object ImageSyncManager {
             val width = bitmap.width
             val height = bitmap.height
 
-            // 1. 发送 header
-            sendHeader(messageApi, nodeId, totalSize, totalChunks, width, height, weatherCode, current, total, label)
-
-            // 2. 发送数据块
-            for (i in 0 until totalChunks) {
-                val offset = i * CHUNK_SIZE
-                val length = minOf(CHUNK_SIZE, data.size - offset)
-                val chunkData = data.copyOfRange(offset, offset + length)
-                val base64Chunk = Base64.encodeToString(chunkData, Base64.NO_WRAP)
-
-                val json = JSONObject().apply {
-                    put("type", "data")
-                    put("index", i)
-                    put("chunk", base64Chunk)
-                }
-                sendMessageRaw(messageApi, nodeId, json.toString())
-                onChunkProgress?.invoke(i + 1, totalChunks)
-            }
-
-            // 3. 先注册确认监听（避免手表回复早于监听注册），再发送 end
+            // 全程监听：手表确认保存 / 手表主动取消
             val latch = CompletableDeferred<Unit>()
             val ackListener = OnMessageReceivedListener { _, message ->
                 try {
                     val json = JSONObject(String(message))
-                    if (json.optString("type") == "image_saved"
-                        && json.optString("weatherCode") == weatherCode
-                    ) {
-                        latch.complete(Unit)
+                    when (json.optString("type")) {
+                        "cancel" -> latch.completeExceptionally(WatchCancelException())
+                        "image_saved" -> {
+                            if (json.optString("weatherCode") == weatherCode) {
+                                latch.complete(Unit)
+                            }
+                        }
                     }
                 } catch (_: Exception) { }
             }
             messageApi.addListener(nodeId, ackListener)
             try {
+                // 1. 发送 header
+                sendHeader(messageApi, nodeId, totalSize, totalChunks, width, height, weatherCode, current, total, label)
+
+                // 2. 发送数据块
+                for (i in 0 until totalChunks) {
+                    if (latch.isCompleted) {
+                        throw latch.getCompletionExceptionOrNull() ?: WatchCancelException()
+                    }
+                    val offset = i * CHUNK_SIZE
+                    val length = minOf(CHUNK_SIZE, data.size - offset)
+                    val chunkData = data.copyOfRange(offset, offset + length)
+                    val base64Chunk = Base64.encodeToString(chunkData, Base64.NO_WRAP)
+
+                    val json = JSONObject().apply {
+                        put("type", "data")
+                        put("index", i)
+                        put("chunk", base64Chunk)
+                    }
+                    sendMessageRaw(messageApi, nodeId, json.toString())
+                    onChunkProgress?.invoke(i + 1, totalChunks)
+                }
+
+                // 3. 发送 end，等待手表确认（超时 30 秒）
                 val endJson = JSONObject().apply { put("type", "end") }
                 sendMessageRaw(messageApi, nodeId, endJson.toString())
-
-                // 4. 等待手表确认（超时 30 秒）
                 withTimeout(30_000) { latch.await() }
             } finally {
                 messageApi.removeListener(nodeId)
             }
 
             Result.success(Unit)
+        } catch (e: WatchCancelException) {
+            Result.failure(e)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -298,8 +321,9 @@ object ImageSyncManager {
             val listener = OnMessageReceivedListener { _, message ->
                 try {
                     val json = JSONObject(String(message))
-                    if (json.optString("type") == "clear_done") {
-                        latch.complete(Unit)
+                    when (json.optString("type")) {
+                        "clear_done" -> latch.complete(Unit)
+                        "cancel" -> latch.completeExceptionally(WatchCancelException())
                     }
                 } catch (_: Exception) { }
             }
@@ -320,7 +344,7 @@ object ImageSyncManager {
     /**
      * 同步所有已配置的自定义背景图
      * @param onProgress 进度回调，参数为 (当前索引, 总数, 天气编号)
-     * @return 成功发送的图片数量
+     * @return 成功发送的图片数量；若手表端取消则返回失败
      */
     suspend fun syncAllImages(
         context: Context,
@@ -336,7 +360,6 @@ object ImageSyncManager {
         val imagePrefs = context.getSharedPreferences("weather_prefs", Context.MODE_PRIVATE)
         val darkenStrength = imagePrefs.getInt("bg_darken_strength", 0)
         val blurRadius = imagePrefs.getInt("bg_blur_radius", 0)
-        val quality = imagePrefs.getInt("bg_quality", 85)
 
         val configured = WEATHER_BG_CODES.filter { (code, _) ->
             getImagePath(code) != null
@@ -353,14 +376,22 @@ object ImageSyncManager {
                     decodeAndScale(context, uri, darkenStrength, blurRadius)
                 } ?: continue
 
-                val result = sendImage(messageApi, nodeId, code, bitmap, index + 1, total, label, quality, onChunkProgress)
+                val result = sendImage(messageApi, nodeId, code, bitmap, index + 1, total, label, onChunkProgress)
                 if (result.isSuccess) {
                     successCount++
                     onImageSent?.invoke(code, true)
                 } else {
+                    val err = result.exceptionOrNull()
+                    if (err is WatchCancelException) {
+                        onImageSent?.invoke(code, false)
+                        return Result.failure(err)
+                    }
                     errorCount++
                     onImageSent?.invoke(code, false)
                 }
+            } catch (e: WatchCancelException) {
+                onImageSent?.invoke(code, false)
+                return Result.failure(e)
             } catch (e: Exception) {
                 errorCount++
                 onImageSent?.invoke(code, false)

@@ -18,8 +18,8 @@ android {
         applicationId = "com.application.zaona.weather"
         minSdk = 24
         targetSdk = 36
-        versionCode = 20
-        versionName = "2.4.3"
+        versionCode = 21
+        versionName = "2.4.4"
 
         val weatherLocalProps = Properties().apply {
             val weatherLocalPropsFile = rootProject.file("weather.local.properties")

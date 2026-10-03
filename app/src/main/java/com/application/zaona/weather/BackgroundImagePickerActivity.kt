@@ -106,7 +106,6 @@ import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Background
 import top.yukonga.miuix.kmp.icon.extended.Create
-import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Close2
 import top.yukonga.miuix.kmp.icon.extended.Delete
@@ -150,11 +149,11 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                 val prefs = remember { context.getSharedPreferences("weather_prefs", android.content.Context.MODE_PRIVATE) }
                 var darkenStrength by remember { mutableStateOf(prefs.getInt("bg_darken_strength", 0)) }
                 var blurRadius by remember { mutableStateOf(prefs.getInt("bg_blur_radius", 0)) }
-                var quality by remember { mutableStateOf(prefs.getInt("bg_quality", 10)) }
 
                 // 预览参数仅在松手时更新，避免拖动滑块时频繁重新生成缩略图
                 var darkenPreview by remember { mutableStateOf(darkenStrength) }
                 var blurPreview by remember { mutableStateOf(blurRadius) }
+                var activeNodeId by remember { mutableStateOf<String?>(null) }
 
                 val nodeApi = remember { Wearable.getNodeApi(context.applicationContext) }
                 val messageApi = remember { Wearable.getMessageApi(context.applicationContext) }
@@ -334,6 +333,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                 syncResultSummary = "未连接手表"
                                 syncFinished = true; isSyncing = false; return@launch
                             }
+                            activeNodeId = node.id
                             syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
                             stepIdx++
 
@@ -464,6 +464,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                 syncResultSummary = "未连接手表"
                                 syncFinished = true; isSyncing = false; return@launch
                             }
+                            activeNodeId = node.id
                             syncSteps[stepIdx] = syncSteps[stepIdx].copy(status = StepStatus.DONE)
                             stepIdx++
 
@@ -622,7 +623,6 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             // 刷新滑块：SWBG 导入会覆盖处理参数
                             darkenStrength = prefs.getInt("bg_darken_strength", 0)
                             blurRadius = prefs.getInt("bg_blur_radius", 0)
-                            quality = prefs.getInt("bg_quality", 10)
                             darkenPreview = darkenStrength
                             blurPreview = blurRadius
                             resultTitle = "导入成功"
@@ -768,35 +768,6 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                                             blurPreview = blurRadius
                                         },
                                         valueRange = 0f..100f
-                                    )
-
-                                    Spacer(modifier = Modifier.height(24.dp))
-
-                                    // 画质滑块
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            MiuixIcons.Demibold.Tune,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp),
-                                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Text(
-                                            text = "画质",
-                                            style = MiuixTheme.textStyles.body1,
-                                            color = MiuixTheme.colorScheme.onBackground
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Slider(
-                                        value = quality.toFloat(),
-                                        onValueChange = { quality = it.toInt() },
-                                        onValueChangeFinished = {
-                                            prefs.edit().putInt("bg_quality", quality).apply()
-                                        },
-                                        valueRange = 10f..50f
                                     )
                                 }
                             }
@@ -950,12 +921,21 @@ class BackgroundImagePickerActivity : ComponentActivity() {
                             TextButton(
                                 text = "取消",
                                 onClick = {
+                                    val nodeId = activeNodeId
                                     syncJob?.cancel()
                                     val idx = syncSteps.indexOfFirst { it.status == StepStatus.IN_PROGRESS }
                                     if (idx >= 0) syncSteps[idx] = syncSteps[idx].copy(status = StepStatus.ERROR)
                                     syncResultSummary = "已取消"
                                     syncFinished = true
                                     isSyncing = false
+                                    if (nodeId != null) {
+                                        scope.launch {
+                                            ImageSyncManager.cancelTransfer(messageApi, nodeId)
+                                            activeNodeId = null
+                                        }
+                                    } else {
+                                        activeNodeId = null
+                                    }
                                 },
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
@@ -1002,6 +982,8 @@ class BackgroundImagePickerActivity : ComponentActivity() {
 ## 传输说明
 背景图同步采用覆盖传输模式，每次同步会将所有已配置的图片重新发送到手表端。如果同步过程中某张图片传输失败，你可以暂时删除其他已成功传输的图片，仅保留失败的那一张，然后再次点击发送单独重传该图片即可，无需全部重新传输。
 
+传输完成后，请退出手表端应用再重新进入，才能看到新背景效果。若覆盖的是手表上已有的自定义背景图，因设备图片缓存问题，还需重启手环刷新缓存后才会显示新图。
+
 ## 导入 / 导出预设包
 点击右上角菜单可导入或导出 `.swbg` 格式的预设包，方便备份和分享。
 
@@ -1011,8 +993,7 @@ class BackgroundImagePickerActivity : ComponentActivity() {
 ## 图片处理参数
 - **压暗**：调整背景图亮度，数值越大越暗。
 - **模糊**：对背景图应用高斯模糊效果。
-- **画质**：控制同步到手表时的图片质量，数值越高画质越好但传输更慢。
-调节滑块后可实时预览效果。
+同步到手表时会自动压缩画质以加快传输。调节滑块后可实时预览效果。
 
 ## 清除背景图
 若所有天气都未选图，点击同步按钮会弹出清除确认，可将手表端已存储的自定义背景图全部清除，恢复默认背景。
