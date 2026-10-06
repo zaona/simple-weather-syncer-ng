@@ -69,7 +69,12 @@ object BackgroundPresetManager {
         val presets: List<PresetEntry> = emptyList()
     )
 
-    /** 全局处理设置 */
+    /**
+     * 全局处理设置。
+     *
+     * 只包含处理参数，`advanced_sync_mode` 属于本机设置，不进预设包；早期版本导出的包
+     * 里带了这个字段，Gson 会直接忽略，导入仍然正常。
+     */
     data class GlobalSettings(
         @SerializedName("darkenStrength")
         val darkenStrength: Int = 0,
@@ -78,10 +83,7 @@ object BackgroundPresetManager {
         val blurRadius: Int = 0,
 
         @SerializedName("quality")
-        val quality: Int = 85,
-
-        @SerializedName("advancedSyncMode")
-        val advancedSyncMode: Boolean = true
+        val quality: Int = 85
     )
 
     /** 单个预设条目 */
@@ -140,8 +142,7 @@ object BackgroundPresetManager {
                 val globalSettings = GlobalSettings(
                     darkenStrength = settingsPrefs.getInt("bg_darken_strength", 0),
                     blurRadius = settingsPrefs.getInt("bg_blur_radius", 0),
-                    quality = settingsPrefs.getInt("bg_quality", 85),
-                    advancedSyncMode = settingsPrefs.getBoolean("advanced_sync_mode", true)
+                    quality = settingsPrefs.getInt("bg_quality", 85)
                 )
 
                 val presets = mutableListOf<PresetEntry>()
@@ -273,7 +274,6 @@ object BackgroundPresetManager {
                     .putInt("bg_darken_strength", manifest!!.globalSettings.darkenStrength)
                     .putInt("bg_blur_radius", manifest!!.globalSettings.blurRadius)
                     .putInt("bg_quality", manifest!!.globalSettings.quality)
-                    .putBoolean("advanced_sync_mode", manifest!!.globalSettings.advancedSyncMode)
                     .apply()
 
                 // 准备存储目录并写入图片
