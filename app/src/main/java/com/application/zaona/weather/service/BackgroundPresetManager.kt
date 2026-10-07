@@ -72,18 +72,16 @@ object BackgroundPresetManager {
     /**
      * 全局处理设置。
      *
-     * 只包含处理参数，`advanced_sync_mode` 属于本机设置，不进预设包；早期版本导出的包
-     * 里带了这个字段，Gson 会直接忽略，导入仍然正常。
+     * 只包含真正参与出图的参数（压暗 / 模糊）：`quality` 出图固定 RGB_565 用不上，
+     * `advanced_sync_mode` 属于本机设置，两个都不进预设包；早期版本导出的包里带了它们，
+     * Gson 会直接忽略，导入仍然正常。
      */
     data class GlobalSettings(
         @SerializedName("darkenStrength")
         val darkenStrength: Int = 0,
 
         @SerializedName("blurRadius")
-        val blurRadius: Int = 0,
-
-        @SerializedName("quality")
-        val quality: Int = 85
+        val blurRadius: Int = 0
     )
 
     /** 单个预设条目 */
@@ -107,16 +105,13 @@ object BackgroundPresetManager {
         val settings: PresetSettings = PresetSettings()
     )
 
-    /** 单个图片的处理设置（预留未来按图片独立设置） */
+    /** 单个图片的处理设置（预留未来按图片独立设置，同样不放 quality） */
     data class PresetSettings(
         @SerializedName("darkenStrength")
         val darkenStrength: Int = 0,
 
         @SerializedName("blurRadius")
-        val blurRadius: Int = 0,
-
-        @SerializedName("quality")
-        val quality: Int = 85
+        val blurRadius: Int = 0
     )
 
     // ---- 公开 API ----
@@ -141,8 +136,7 @@ object BackgroundPresetManager {
 
                 val globalSettings = GlobalSettings(
                     darkenStrength = settingsPrefs.getInt("bg_darken_strength", 0),
-                    blurRadius = settingsPrefs.getInt("bg_blur_radius", 0),
-                    quality = settingsPrefs.getInt("bg_quality", 85)
+                    blurRadius = settingsPrefs.getInt("bg_blur_radius", 0)
                 )
 
                 val presets = mutableListOf<PresetEntry>()
@@ -164,8 +158,7 @@ object BackgroundPresetManager {
                             originalFileName = fileName,
                             settings = PresetSettings(
                                 darkenStrength = globalSettings.darkenStrength,
-                                blurRadius = globalSettings.blurRadius,
-                                quality = globalSettings.quality
+                                blurRadius = globalSettings.blurRadius
                             )
                         )
                         presets.add(entry)
@@ -273,7 +266,6 @@ object BackgroundPresetManager {
                 settingsPrefs.edit()
                     .putInt("bg_darken_strength", manifest!!.globalSettings.darkenStrength)
                     .putInt("bg_blur_radius", manifest!!.globalSettings.blurRadius)
-                    .putInt("bg_quality", manifest!!.globalSettings.quality)
                     .apply()
 
                 // 准备存储目录并写入图片
